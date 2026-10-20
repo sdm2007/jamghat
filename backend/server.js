@@ -17,26 +17,32 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : true, credentials: true }));
 // Small JSON limit everywhere; only the admin photo upload route may send a large body.
-const PHOTO_ROUTE = /^\/api\/businesses\/\d+\/photos$/;
+const PHOTO_ROUTE = /^\/api\/businesses\/\d+\/photos\$/;
 app.use((req, res, next) => express.json({ limit: PHOTO_ROUTE.test(req.path) ? '8mb' : '100kb' })(req, res, next));
 
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL must be set to your Supabase Postgres connection string.');
+
+// Handle SSL certificate safely so missing local certs don't crash the server on startup
+const caCertPath = path.join(__dirname, 'supabase-prod-ca.crt');
+let sslConfig = { rejectUnauthorized: false };
+if (fs.existsSync(caCertPath)) {
+  try {
+    sslConfig = { rejectUnauthorized: true, ca: fs.readFileSync(caCertPath, 'utf8') };
+  } catch (err) {
+    console.warn('Could not read supabase-prod-ca.crt, falling back to default SSL:', err.message);
+  }
+}
+
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: true,
-    ca: fs.readFileSync(
-      path.join(__dirname, 'supabase-prod-ca.crt'),
-      'utf8'
-    ),
-  },
+  ssl: process.env.PGSSLMODE === 'disable' ? false : sslConfig,
   max: Number(process.env.PG_POOL_MAX || 5),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });
 
 // All uploaded business photos live in Supabase Storage, never on the web server's temporary disk.
-const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/\$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'business-photos';
 async function storageRequest(endpoint, options = {}) {
@@ -94,7 +100,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_USER = String(process.env.SMTP_USER || '').trim();
 const SMTP_PASS = String(process.env.SMTP_PASS || '');
 const EMAIL_FROM = String(process.env.EMAIL_FROM || SMTP_USER).trim();
-const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).replace(/\/\$/, '');
 function mailConfigured() { return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && EMAIL_FROM); }
 function mailTransport() {
   if (!mailConfigured()) throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in backend/.env.');
@@ -107,9 +113,9 @@ async function sendVerificationEmail(email, name, rawToken) {
   await mailTransport().sendMail({
     from: EMAIL_FROM,
     to: email,
-    subject: 'Verify your Market Hub email',
-    text: `Hello ${name},\n\nVerify your email address to sign in to Market Hub: ${link}\n\nThis link expires in 24 hours. If you did not register, you can ignore this email.`,
-    html: `<p>Hello ${escapeHtml(name)},</p><p>Verify your email address to sign in to Market Hub.</p><p><a href="${link}">Verify my email address</a></p><p>This link expires in 24 hours. If you did not register, you can ignore this email.</p>`
+    subject: 'Verify your Jamghat email',
+    text: `Hello ${name},\n\nVerify your email address to sign in to Jamghat: ${link}\n\nThis link expires in 24 hours. If you did not register, you can ignore this email.`,
+    html: `<p>Hello ${escapeHtml(name)},</p><p>Verify your email address to sign in to Jamghat.</p><p><a href="${link}">Verify my email address</a></p><p>This link expires in 24 hours. If you did not register, you can ignore this email.</p>`
   });
 }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -130,14 +136,14 @@ async function ensureAdmin() {
     return;
   }
   const found = await get('SELECT id FROM users WHERE lower(email)=lower(?)', [email]);
-  if (!found) await run('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES(?,?,?,?,?,?,TRUE,?)', ['Market Hub Admin', email, hashPassword(password), 'ADMIN', '', now(), now()]);
+  if (!found) await run('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES(?,?,?,?,?,?,TRUE,?)', ['Jamghat Admin', email, hashPassword(password), 'ADMIN', '', now(), now()]);
   else await run('UPDATE users SET password_hash=?,role=?,email_verified=TRUE,email_verified_at=COALESCE(email_verified_at,?) WHERE id=?', [hashPassword(password), 'ADMIN', now(), found.id]);
 }
 
 async function currentHours(businessId, date = new Date()) {
   const todayKey = new Intl.DateTimeFormat('en-CA', {timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
   const special = await get(`SELECT * FROM special_hours WHERE business_id=? AND date=?`,[businessId,todayKey]);
-  if (special?.is_closed) return {open:false,closesAt:null,nextOpen:null,label:`Closed today${special.note?` · ${special.note}`:''}`,closedToday:true,specialNote:special.note||''};
+  if (special?.is_closed) return {open:false,closesAt:null,nextOpen:null,label:`Closed today${special.note?` · \${special.note}`:''}`,closedToday:true,specialNote:special.note||''};
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const day=dayName(date); const idx=days.indexOf(day); const current=mins(timeInIndia(date));
   const row=await get(`SELECT * FROM business_hours WHERE business_id=? AND day=?`,[businessId,day]);
@@ -186,7 +192,7 @@ function rateLimit(max, windowMs) {
 function widen(q,cat){const synonyms={barber:['hair','haircut','salon'],mechanic:['bike','puncture','repair'],books:['book','books','ncert'],stationery:['notebook','pen'],electrician:['electrical','electric'],tailor:['stitching','alteration']};return Object.entries(synonyms).some(([k,vals])=>q.includes(k)&&vals.some(v=>String(cat||'').toLowerCase().includes(v)));}
 async function auth(req,res,next) {
   try {
-    const cookieToken=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('mh_session='))?.slice('mh_session='.length);
+    const cookieToken=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('jg_session='))?.slice('jg_session='.length);
     const raw=(req.headers.authorization||'').replace(/^Bearer\s+/i,'') || decodeURIComponent(cookieToken||'');
     if(!raw) return res.status(401).json({error:'Authentication required'});
     const s=await get(`SELECT s.*,u.id user_id,u.name,u.email,u.role,u.location,u.avatar FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?`,[raw,now()]);
@@ -201,7 +207,7 @@ async function ownerFor(req,businessId){
 }
 
 // ---------- public (no login, no writes) ----------
-app.get('/api/health',(req,res)=>res.json({ok:true,name:'Market Hub'}));
+app.get('/api/health',(req,res)=>res.json({ok:true,name:'Jamghat'}));
 
 app.get('/api/businesses',async(req,res)=>{try{
   const q=String(req.query.q||'').trim().toLowerCase();const category=String(req.query.category||'').trim();
@@ -237,26 +243,26 @@ app.post('/api/auth/login',loginLimit,async(req,res)=>{try{
   if(u.role!=='ADMIN' && !u.email_verified)return res.status(403).json({error:'Please verify your email before signing in. Check your inbox or resend the verification email.',code:'EMAIL_NOT_VERIFIED'});
   const t=token();
   await run(`INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)`,[t,u.id,new Date(Date.now()+7*864e5).toISOString()]);
-  res.cookie('mh_session', t, { httpOnly:true, secure:IS_PROD, sameSite:'lax', path:'/', maxAge:7*864e5 });
+  res.cookie('jg_session', t, { httpOnly:true, secure:IS_PROD, sameSite:'lax', path:'/', maxAge:7*864e5 });
   res.json({user:{id:u.id,name:u.name,email:u.email,role:u.role}});
 }catch(e){res.status(500).json({error:e.message});}});
-app.post('/api/auth/logout',auth,async(req,res)=>{await run(`DELETE FROM sessions WHERE token=?`,[req.user.token]);res.clearCookie('mh_session',{httpOnly:true,secure:IS_PROD,sameSite:'lax',path:'/'});res.json({ok:true});});
+app.post('/api/auth/logout',auth,async(req,res)=>{await run(`DELETE FROM sessions WHERE token=?`,[req.user.token]);res.clearCookie('jg_session',{httpOnly:true,secure:IS_PROD,sameSite:'lax',path:'/'});res.json({ok:true});});
 app.get('/api/auth/me',auth,(req,res)=>res.json({user:req.user}));
 app.get('/api/auth/verify-email', async (req,res)=>{try{
   const raw=String(req.query.token||'');
-  if(!/^[a-f0-9]{64}$/i.test(raw))return res.status(400).json({error:'This verification link is invalid. Request a new email.'});
+  if(!/^[a-f0-9]{64}\$/i.test(raw))return res.status(400).json({error:'This verification link is invalid. Request a new email.'});
   const row=await get('SELECT user_id,expires_at FROM email_verifications WHERE token_hash=?',[tokenDigest(raw)]);
   if(!row)return res.status(400).json({error:'This verification link is invalid or has already been used. Request a new email.'});
   if(new Date(row.expires_at).getTime()<Date.now()){await run('DELETE FROM email_verifications WHERE token_hash=?',[tokenDigest(raw)]);return res.status(400).json({error:'This verification link has expired. Please request a new one.'});}
   await run('UPDATE users SET email_verified=TRUE,email_verified_at=? WHERE id=?',[now(),row.user_id]);
   await run('DELETE FROM email_verifications WHERE user_id=?',[row.user_id]);
-  res.json({ok:true,message:'Email verified successfully. You can now sign in to Market Hub.'});
+  res.json({ok:true,message:'Email verified successfully. You can now sign in to Jamghat.'});
 }catch(e){console.error(e);res.status(500).json({error:'Could not verify email. Please try again.'});}});
 
 const resendLimit=rateLimit(3,60*60*1000);
 app.post('/api/auth/resend-verification',resendLimit,async(req,res)=>{try{
   const email=String(req.body?.email||'').trim().toLowerCase();
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return res.status(400).json({error:'Enter a valid email address.'});
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+\$/.test(email))return res.status(400).json({error:'Enter a valid email address.'});
   const u=await get('SELECT id,name,email,role,email_verified FROM users WHERE lower(email)=?', [email]);
   if(!u || u.role==='ADMIN' || u.email_verified)return res.json({ok:true,message:'If this account needs verification, an email will be sent shortly.'});
   const raw=verificationToken();
@@ -275,7 +281,7 @@ app.post('/api/business/register',registerLimit,async(req,res)=>{try{
   const ownerName=clean(b.owner_name,80),email=clean(b.email,120).toLowerCase(),password=String(b.password||'');
   const name=clean(b.business_name,120),category=clean(b.category,60),phone=clean(b.phone,30),address=clean(b.address,200),description=clean(b.description,400);
   if(!ownerName||!name||!category||!phone||!address)return res.status(400).json({error:'Your name, shop name, category, phone and address are required'});
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return res.status(400).json({error:'Please enter a valid email address'});
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+\$/.test(email))return res.status(400).json({error:'Please enter a valid email address'});
   if(password.length<8)return res.status(400).json({error:'Password must be at least 8 characters'});
   if(await get('SELECT id FROM users WHERE lower(email)=?',[email]))return res.status(400).json({error:'This email is already registered. If you have not verified it, use the resend verification option on the login form.'});
   const lat=Number(b.latitude),lng=Number(b.longitude);const hasCoords=b.latitude!==''&&b.longitude!==''&&b.latitude!=null&&b.longitude!=null&&Number.isFinite(lat)&&Number.isFinite(lng);
@@ -284,14 +290,14 @@ app.post('/api/business/register',registerLimit,async(req,res)=>{try{
   let userId,businessId,rawToken;
   try {
     await client.query('BEGIN');
-    const userResult=await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id',[ownerName,email,hashPassword(password),'BUSINESS_OWNER',address,now()]);
+    const userResult=await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES(\$1,\$2,\$3,\$4,\$5,\$6,FALSE,NULL) RETURNING id',[ownerName,email,hashPassword(password),'BUSINESS_OWNER',address,now()]);
     userId=userResult.rows[0].id;
-    const bizResult=await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',[name,category,phone,address,999,description,1,'VERIFIED',60,now(),now(),homeVisit,hasCoords?lat:null,hasCoords?lng:null]);
+    const bizResult=await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES(\$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$9,\$10,\$11,\$12,\$13,\$14) RETURNING id',[name,category,phone,address,999,description,1,'VERIFIED',60,now(),now(),homeVisit,hasCoords?lat:null,hasCoords?lng:null]);
     businessId=bizResult.rows[0].id;
-    await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')",[businessId,userId]);
-    for(const d of ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']) await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING',[businessId,d,d==='Sunday'?1:0,d==='Sunday'?null:'09:00',d==='Sunday'?null:'20:00',JSON.stringify(d==='Sunday'?[]:[{open:'09:00',close:'20:00'}])]);
+    await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES(\$1,\$2,'VERIFIED')",[businessId,userId]);
+    for(const d of ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']) await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES(\$1,\$2,\$3,\$4,\$5,\$6) ON CONFLICT(business_id,day) DO NOTHING',[businessId,d,d==='Sunday'?1:0,d==='Sunday'?null:'09:00',d==='Sunday'?null:'20:00',JSON.stringify(d==='Sunday'?[]:[{open:'09:00',close:'20:00'}])]);
     rawToken=verificationToken();
-    await client.query('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)',[userId,tokenDigest(rawToken),new Date(Date.now()+24*60*60*1000).toISOString(),now()]);
+    await client.query('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES(\$1,\$2,\$3,\$4)',[userId,tokenDigest(rawToken),new Date(Date.now()+24*60*60*1000).toISOString(),now()]);
     // Send before commit so an SMTP failure can roll back the new account and listing.
     await sendVerificationEmail(email,ownerName,rawToken);
     await client.query('COMMIT');
@@ -384,7 +390,7 @@ app.post('/api/businesses/:id/photos',auth,requireRole('ADMIN'),async(req,res)=>
   const business=await get(`SELECT id FROM businesses WHERE id=?`,[req.params.id]);
   if(!business)return res.status(404).json({error:'Business not found'});
   const raw=String(req.body.image_data||'');
-  const match=raw.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/i);
+  const match=raw.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)\$/i);
   if(!match)return res.status(400).json({error:'Please choose a JPG, PNG, or WebP image.'});
   const mime=match[1].toLowerCase()==='image/jpg'?'image/jpeg':match[1].toLowerCase();
   const buffer=Buffer.from(match[2],'base64');
@@ -419,6 +425,6 @@ if(fs.existsSync(path.join(distDir,'index.html'))){
 
 app.use((err,req,res,next)=>{console.error(err);res.status(err.status||500).json({error:err.status===413?'Request too large':'Unexpected server error'});});
 
-init().then(()=>app.listen(PORT,()=>console.log(`Market Hub backend running on port ${PORT}`))).catch(e=>{console.error('Startup failed',e);process.exit(1);});
+init().then(()=>app.listen(PORT,()=>console.log(`Jamghat backend running on port ${PORT}`))).catch(e=>{console.error('Startup failed',e);process.exit(1);});
 process.on('SIGTERM', async()=>{await db.end();process.exit(0)});
 process.on('SIGINT', async()=>{await db.end();process.exit(0)});
