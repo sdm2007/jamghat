@@ -1,0 +1,18 @@
+{
+  "name": "market-hub-backend",
+  "version": "1.0.0",
+  "description": "Hyperlocal marketplace backend engine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pg": "^8.16.3",
+    "helmet": "^8.1.0",
+    "nodemailer": "^6.10.1",
+    "dotenv": "^16.4.7"
+  }
+}
