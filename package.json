@@ -4,7 +4,7 @@
   "description": "Market Hub MVP - one Node service serves the API and the built frontend",
   "scripts": {
     "install:all": "npm --prefix frontend install && npm --prefix backend install",
-    "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
+    "build": "npm --prefix frontend install --include=dev && npm --prefix frontend run build && npm --prefix backend install",
     "start": "npm --prefix backend start",
     "dev": "npm --prefix frontend run dev"
   },
