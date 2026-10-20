@@ -1,7 +1,7 @@
 {
   "name": "market-hub",
   "private": true,
-  "description": "Market Hub MVP - one Node service serves the API and the built frontend",
+  "description": "Jamghat MVP - one Node service serves the API and the built frontend",
   "scripts": {
     "install:all": "npm --prefix frontend install && npm --prefix backend install",
     "build": "npm --prefix frontend install --include=dev && npm --prefix frontend run build && npm --prefix backend install",
