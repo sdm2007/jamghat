@@ -5,7 +5,6 @@ import {
   ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles
 } from 'lucide-react';
 
-// Same-origin '/api' in production (the backend also serves the built frontend); localhost:5000 in dev.
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const DEFAULT_LOCATION = {lat:22.7196,lng:75.8577,label:'Bada Bazaar, Indore'};
@@ -24,12 +23,18 @@ function App(){
   const [theme,setTheme]=useState(localStorage.getItem('mh-theme')||'system');
   const [lang,setLang]=useState(localStorage.getItem('mh-lang')||'en');
   const [user,setUser]=useState(null);
-  const [page,setPage]=useState('home'); const [query,setQuery]=useState(''); const [category,setCategory]=useState('ALL');
-  const [businesses,setBusinesses]=useState([]); const [selected,setSelected]=useState(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  const [page,setPage]=useState('home'); 
+  const [query,setQuery]=useState(''); 
+  const [category,setCategory]=useState('ALL');
+  const [businesses,setBusinesses]=useState([]); 
+  const [selected,setSelected]=useState(null); 
+  const [loading,setLoading]=useState(true); 
+  const [error,setError]=useState('');
   const [authMode,setAuthMode]=useState(null);
   const [notice,setNotice]=useState('');
   const [customerLocation,setCustomerLocation]=useState(()=>{try{return JSON.parse(localStorage.getItem('mh-location'))||DEFAULT_LOCATION}catch{return DEFAULT_LOCATION}});
-  const [locating,setLocating]=useState(false); const [locationMessage,setLocationMessage]=useState('');
+  const [locating,setLocating]=useState(false); 
+  const [locationMessage,setLocationMessage]=useState('');
   const t=i18n[lang];
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('mh-theme',theme)},[theme]);
@@ -202,6 +207,8 @@ function Home({query,setQuery,category,setCategory,businesses,loading,openBusine
 }
 
 function LocationBar({location,locating,onLocate,message}){
+  const lat = location?.lat || DEFAULT_LOCATION.lat;
+  const lng = location?.lng || DEFAULT_LOCATION.lng;
   return (
     <section className="location-bar panel">
       <div className="location-main">
@@ -218,7 +225,7 @@ function LocationBar({location,locating,onLocate,message}){
         </button>
         <a 
           className="icon-btn" 
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${location?.lat \vert{}\vert{} DEFAULT_LOCATION.lat},${location?.lng || DEFAULT_LOCATION.lng}`)}`} 
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`} 
           target="_blank" 
           rel="noreferrer" 
           title="Open location in Google Maps"
