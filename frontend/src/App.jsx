@@ -266,7 +266,7 @@ function GoogleMapView({businesses,customerLocation,homeServices,openBusiness,on
     }
     const script=document.createElement('script');
     script.id='google-maps-script';
-    script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
+    script.src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
     script.async=true;
     script.defer=true;
     script.onload=()=>!cancelled&&setReady(true);
@@ -310,14 +310,13 @@ function GoogleMapView({businesses,customerLocation,homeServices,openBusiness,on
       const marker=new window.google.maps.Marker({map:mapRef.current,position:pos,title:b.name,label:{text:b.name.slice(0,1),color:'#ffffff',fontWeight:'800'}});
       marker.addListener('click',()=>{
         if(infoRef.current)infoRef.current.close();
-        infoRef.current=new window.google.maps.InfoWindow({
-          content:`<div style="min-width:210px;font-family:Arial,sans-serif">
-            <strong>${escapeHtml(b.name)}</strong>
-            <div style="margin-top:5px;color:#666">${escapeHtml(b.category)} · ${escapeHtml(String(b.distance||'—'))} km away</div>
-            ${b.home_visit?`<div style="margin-top:5px">Serves: \${escapeHtml(b.service_area||'Area not specified')}</div><div>Coverage: up to ${escapeHtml(String(b.max_service_radius \vert{}\vert{} '—'))} km</div><div>Visit charge: ₹${Number(b.visit_charge||0).toLocaleString('en-IN')}</div>`:''}
-            <button id="map-open-${b.id}" style="margin-top:8px;padding:6px 9px;border:0;border-radius:7px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">View details</button>
-          </div>`
-        });
+        const contentStr = '<div style="min-width:210px;font-family:Arial,sans-serif">' +
+          '<strong>' + escapeHtml(b.name) + '</strong>' +
+          '<div style="margin-top:5px;color:#666">' + escapeHtml(b.category) + ' · ' + escapeHtml(String(b.distance || '—')) + ' km away</div>' +
+          (b.home_visit ? ('<div style="margin-top:5px">Serves: ' + escapeHtml(b.service_area || 'Area not specified') + '</div><div>Coverage: up to ' + escapeHtml(String(b.max_service_radius || '—')) + ' km</div><div>Visit charge: ₹' + Number(b.visit_charge || 0).toLocaleString('en-IN') + '</div>') : '') +
+          '<button id="map-open-' + b.id + '" style="margin-top:8px;padding:6px 9px;border:0;border-radius:7px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">View details</button>' +
+        '</div>';
+        infoRef.current=new window.google.maps.InfoWindow({ content: contentStr });
         infoRef.current.open({map:mapRef.current,anchor:marker});
         window.setTimeout(()=>document.getElementById(`map-open-${b.id}`)?.addEventListener('click',()=>openBusiness(b)),0);
       });
@@ -483,7 +482,7 @@ function ServiceCoverageMap({business,customerLocation,onLocationChange}){
     }
     const script=document.createElement('script');
     script.id='google-maps-script';
-    script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
+    script.src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
     script.async=true;
     script.defer=true;
     script.onload=()=>!cancelled&&setReady(true);
