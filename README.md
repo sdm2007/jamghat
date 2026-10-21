@@ -1,4 +1,4 @@
-# Market Hub — local business directory MVP
+# jamGhat — local business directory MVP
 
 Market Hub helps local customers discover nearby shops and services, compare listed prices, see opening hours, and contact businesses. Customers do not need accounts. Business owners can register and manage their listing, hours, stock, and prices. One administrator account is configured using environment variables.
 
