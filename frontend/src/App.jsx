@@ -266,7 +266,7 @@ function GoogleMapView({businesses,customerLocation,homeServices,openBusiness,on
     }
     const script=document.createElement('script');
     script.id='google-maps-script';
-    script.src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
+    script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
     script.async=true;
     script.defer=true;
     script.onload=()=>!cancelled&&setReady(true);
@@ -482,7 +482,7 @@ function ServiceCoverageMap({business,customerLocation,onLocationChange}){
     }
     const script=document.createElement('script');
     script.id='google-maps-script';
-    script.src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
+    script.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
     script.async=true;
     script.defer=true;
     script.onload=()=>!cancelled&&setReady(true);
