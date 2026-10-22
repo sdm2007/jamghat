@@ -116,6 +116,12 @@ const i18n = {
     deleteAccount: 'Delete account',
     deleteAccountConfirm: 'Are you sure you want to permanently delete your profile and shop listing? This action cannot be undone.',
     deletingAccount: 'Deleting account…',
+    adminShops: 'Shops & Services',
+    adminDeleteListing: 'Delete Listing',
+    adminDeleteConfirm: 'Are you sure you want to permanently remove "{name}"? All associated catalog items and photos will be deleted.',
+    adminApprove: 'Approve',
+    adminReject: 'Reject',
+    adminStatus: 'Status',
     allCategory: 'All',
     booksCategory: 'Books',
     groceryCategory: 'Grocery',
@@ -227,6 +233,12 @@ const i18n = {
     deleteAccount: 'खाता डिलीट करें',
     deleteAccountConfirm: 'क्या आप वाकई अपना प्रोफाइल और दुकान हमेशा के लिए हटाना चाहते हैं? यह वापस नहीं हो सकता।',
     deletingAccount: 'खाता हटाया जा रहा है…',
+    adminShops: 'दुकानें व सेवाएं',
+    adminDeleteListing: 'लिस्टिंग हटाएं',
+    adminDeleteConfirm: 'क्या आप वाकई "{name}" की लिस्टिंग हमेशा के लिए हटाना चाहते हैं? इसके सभी आइटम व तस्वीरें हटा दी जाएंगी।',
+    adminApprove: 'मंजूरी दें',
+    adminReject: 'अस्वीकार करें',
+    adminStatus: 'स्थिति',
     allCategory: 'सब',
     booksCategory: 'किताबें',
     groceryCategory: 'किराना',
@@ -1832,6 +1844,18 @@ function AdminDashboard({ api, logout, t }) {
     }
   }
 
+  async function deleteListing(id, name) {
+    const promptText = t.adminDeleteConfirm.replace('{name}', name);
+    if (!window.confirm(promptText)) return;
+    try {
+      await api(`/admin/businesses/${id}`, { method: 'DELETE' });
+      setMsg(`Listing "${name}" removed successfully.`);
+      await load();
+    } catch (e) {
+      setMsg(e.message || 'Failed to delete business.');
+    }
+  }
+
   if (!data) return msg ? <div className="error-banner">{msg}</div> : <Loading text={t.loadingInfo} />;
 
   return (
@@ -1855,7 +1879,7 @@ function AdminDashboard({ api, logout, t }) {
       {msg && <div className="notice">{msg}</div>}
       <div className="tabs">
         {[
-          ['registrations', 'Business listings'],
+          ['registrations', t.adminShops],
           ['photos', t.shopPhotos]
         ].map(x => (
           <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>
@@ -1865,27 +1889,34 @@ function AdminDashboard({ api, logout, t }) {
       </div>
       {tab === 'registrations' && (
         <section className="panel">
-          <h2>Shops</h2>
+          <h2>{t.adminShops}</h2>
           {shops.length ? (
             shops.map(s => (
               <div className="admin-row" key={s.id}>
                 <div>
                   <b>{s.name}</b>
                   <small>
-                    {s.category} · {s.phone || 'no phone'}
+                    {s.category} · {s.phone || 'no phone'} · {t.adminStatus}: {s.verification_status}
                   </small>
                 </div>
                 <div className="inline-form">
                   {s.verification_status !== 'VERIFIED' && (
                     <button className="primary small" onClick={() => setStatus(s.id, 'VERIFIED')}>
-                      Approve
+                      {t.adminApprove}
                     </button>
                   )}
                   {s.verification_status === 'PENDING' && (
                     <button className="secondary small" onClick={() => setStatus(s.id, 'REJECTED')}>
-                      Reject
+                      {t.adminReject}
                     </button>
                   )}
+                  <button
+                    className="danger-outline small"
+                    onClick={() => deleteListing(s.id, s.name)}
+                    title={t.adminDeleteListing}
+                  >
+                    <Trash2 size={13} /> {t.adminDeleteListing}
+                  </button>
                 </div>
               </div>
             ))

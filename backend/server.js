@@ -98,7 +98,7 @@ async function run(sql, params = []) {
   let q = sql.replace(/INSERT OR IGNORE INTO/i, 'INSERT INTO');
   if (ignore && !/ON CONFLICT/i.test(q)) q += ' ON CONFLICT DO NOTHING';
   const table = (q.match(/^\s*INSERT\s+INTO\s+([a-z_]+)/i) || [])[1]?.toLowerCase();
-  const idTables = new Set(['users','businesses','items','special_hours','business_photos','demand_insights']);
+  const idTables = new Set(['users', 'businesses', 'items', 'special_hours', 'business_photos', 'demand_insights']);
   if (table && idTables.has(table) && !/RETURNING\s/i.test(q)) q += ' RETURNING id';
   const result = await db.query(pgSql(q), params);
   return { lastID: result.rows?.[0]?.id, changes: result.rowCount || 0, rows: result.rows };
@@ -124,7 +124,7 @@ function token() { return crypto.randomBytes(32).toString('hex'); }
 function dayName(date = new Date()) { return new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'long' }).format(date); }
 function timeInIndia(date = new Date()) { return new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(date); }
 function mins(hhmm) { const [h, m] = String(hhmm || '00:00').split(':').map(Number); return h * 60 + m; }
-function formatTime(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':').map(Number); const d = new Date(2000,0,1,h,m); return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); }
+function formatTime(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':').map(Number); const d = new Date(2000, 0, 1, h, m); return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); }
 function distanceRank(d) { return Number(d || 999); }
 function haversineKm(lat1, lon1, lat2, lon2) {
   const toRad = n => n * Math.PI / 180;
@@ -195,13 +195,12 @@ async function currentHours(businessId, date = new Date()) {
   const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
   const special = await get(`SELECT * FROM special_hours WHERE business_id=? AND date=?`, [businessId, todayKey]);
   if (special?.is_closed) return { open: false, closesAt: null, nextOpen: null, label: `Closed today${special.note ? ` · ${special.note}` : ''}`, closedToday: true, specialNote: special.note || '' };
-  
+
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const day = dayName(date);
-  const idx = days.indexOf(day);
   const current = mins(timeInIndia(date));
   const row = await get(`SELECT * FROM business_hours WHERE business_id=? AND day=?`, [businessId, day]);
-  
+
   if (row && !row.is_closed) {
     const open = mins(row.open_time), close = mins(row.close_time);
     const overnight = close < open;
@@ -280,7 +279,7 @@ function rateLimit(max, windowMs) {
 }
 
 function widen(q, cat) {
-  const synonyms = { barber: ['hair','haircut','salon'], mechanic: ['bike','puncture','repair'], books: ['book','books','ncert'], stationery: ['notebook','pen'], electrician: ['electrical','electric'], tailor: ['stitching','alteration'] };
+  const synonyms = { barber: ['hair', 'haircut', 'salon'], mechanic: ['bike', 'puncture', 'repair'], books: ['book', 'books', 'ncert'], stationery: ['notebook', 'pen'], electrician: ['electrical', 'electric'], tailor: ['stitching', 'alteration'] };
   return Object.entries(synonyms).some(([k, vals]) => q.includes(k) && vals.some(v => String(cat || '').toLowerCase().includes(v)));
 }
 
@@ -366,6 +365,49 @@ app.post('/api/auth/logout', auth, async (req, res) => {
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ user: req.user }));
 
+app.delete('/api/auth/me', auth, async (req, res) => {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const ownerRow = await client.query('SELECT business_id FROM business_owners WHERE user_id = $1', [req.user.id]);
+    if (ownerRow.rows.length > 0) {
+      const bizId = ownerRow.rows[0].business_id;
+
+      const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
+      for (const p of photos.rows) {
+        if (p.storage_path) {
+          try {
+            await storageRequest('/object/' + encodeURIComponent(SUPABASE_STORAGE_BUCKET), {
+              method: 'DELETE',
+              body: JSON.stringify({ prefixes: [p.storage_path] })
+            });
+          } catch (err) {
+            console.warn('Storage photo deletion warning:', err.message);
+          }
+        }
+      }
+
+      await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
+    }
+
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+
+    await client.query('COMMIT');
+    marketPriceCache = null;
+
+    res.clearCookie('jg_session', { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/' });
+    res.json({ ok: true, message: 'Account and associated business data deleted successfully.' });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message || 'Could not delete profile.' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/api/auth/verify-email', async (req, res) => {
   try {
     const raw = String(req.query.token || '');
@@ -401,7 +443,7 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
   try {
     if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet. Add SMTP details to backend environment variables.' });
     if (IS_PROD && !PUBLIC_APP_URL.startsWith('https://')) return res.status(503).json({ error: 'Set PUBLIC_APP_URL to your public HTTPS website URL.' });
-    
+
     const b = req.body || {};
     const clean = (v, n) => String(v ?? '').trim().slice(0, n);
     const ownerName = clean(b.owner_name, 80), email = clean(b.email, 120).toLowerCase(), password = String(b.password || '');
@@ -415,19 +457,19 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
     const lat = Number(b.latitude), lng = Number(b.longitude);
     const hasCoords = b.latitude !== '' && b.longitude !== '' && b.latitude != null && b.longitude != null && Number.isFinite(lat) && Number.isFinite(lng);
     const homeVisit = category === 'Home Services' ? 1 : 0;
-    
+
     const client = await db.connect();
     let userId, businessId, rawToken;
     try {
       await client.query('BEGIN');
       const userResult = await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id', [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]);
       userId = userResult.rows[0].id;
-      
+
       const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 1, 'VERIFIED', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
       businessId = bizResult.rows[0].id;
-      
+
       await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
-      for (const d of ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']) {
+      for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
         await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING', [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]);
       }
       rawToken = verificationToken();
@@ -461,7 +503,7 @@ app.patch('/api/business/:id', auth, requireRole('BUSINESS_OWNER'), async (req, 
     if (!await ownerFor(req, req.params.id)) return res.status(403).json({ error: 'You do not own this business' });
     const b = await get(`SELECT * FROM businesses WHERE id=?`, [req.params.id]);
     if (!b) return res.status(404).json({ error: 'Business not found' });
-    const fields = ['name','category','phone','address','description','service_area','max_service_radius','home_visit','visit_charge','emergency_service','appointment_required','latitude','longitude'];
+    const fields = ['name', 'category', 'phone', 'address', 'description', 'service_area', 'max_service_radius', 'home_visit', 'visit_charge', 'emergency_service', 'appointment_required', 'latitude', 'longitude'];
     const vals = fields.map(k => req.body[k] !== undefined ? req.body[k] : b[k]);
     const completeness = Math.round(fields.filter((k, i) => String(vals[i] ?? '').trim() !== '').length / fields.length * 100);
     await run(`UPDATE businesses SET name=?,category=?,phone=?,address=?,description=?,service_area=?,max_service_radius=?,home_visit=?,visit_charge=?,emergency_service=?,appointment_required=?,latitude=?,longitude=?,profile_completeness=?,profile_updated_at=? WHERE id=?`, [...vals, completeness, now(), b.id]);
@@ -519,7 +561,7 @@ app.patch('/api/items/:id', auth, requireRole('BUSINESS_OWNER'), async (req, res
     const item = await get(`SELECT * FROM items WHERE id=?`, [req.params.id]);
     if (!item) return res.status(404).json({ error: 'Item not found' });
     if (!await ownerFor(req, item.business_id)) return res.status(403).json({ error: 'You do not own this business' });
-    const allowed = ['name','price','type','status','quantity','description','price_type','price_min','price_max','category_attributes'];
+    const allowed = ['name', 'price', 'type', 'status', 'quantity', 'description', 'price_type', 'price_min', 'price_max', 'category_attributes'];
     const data = { ...item, ...Object.fromEntries(allowed.filter(k => req.body[k] !== undefined).map(k => [k, req.body[k]])) };
     await run(`UPDATE items SET name=?,price=?,type=?,status=?,quantity=?,description=?,price_type=?,price_min=?,price_max=?,category_attributes=?,updated_at=? WHERE id=?`, [data.name, data.price, data.type, data.status, Math.max(0, Number(data.quantity) || 0), data.description, data.price_type, data.price_min, data.price_max, typeof data.category_attributes === 'string' ? data.category_attributes : JSON.stringify(data.category_attributes), now(), item.id]);
     marketPriceCache = null;
@@ -551,6 +593,43 @@ app.patch('/api/admin/businesses/:id/status', auth, requireRole('ADMIN'), async 
     if (!r.changes) return res.status(404).json({ error: 'Business not found' });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, res) => {
+  const client = await db.connect();
+  try {
+    const bizId = req.params.id;
+    await client.query('BEGIN');
+
+    const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
+    for (const p of photos.rows) {
+      if (p.storage_path) {
+        try {
+          await storageRequest('/object/' + encodeURIComponent(SUPABASE_STORAGE_BUCKET), {
+            method: 'DELETE',
+            body: JSON.stringify({ prefixes: [p.storage_path] })
+          });
+        } catch (err) {
+          console.warn('Storage deletion error:', err.message);
+        }
+      }
+    }
+
+    const result = await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
+    if (!result.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    await client.query('COMMIT');
+    marketPriceCache = null;
+    res.json({ ok: true, message: 'Business listing permanently deleted.' });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message || 'Could not delete business' });
+  } finally {
+    client.release();
+  }
 });
 
 app.post('/api/businesses/:id/photos', auth, requireRole('ADMIN'), async (req, res) => {
@@ -597,51 +676,6 @@ init().then(() => app.listen(PORT, () => console.log(`Jamghat backend running on
   console.error('Startup failed', e);
   process.exit(1);
 });
+
 process.on('SIGTERM', async () => { await db.end(); process.exit(0); });
 process.on('SIGINT', async () => { await db.end(); process.exit(0); });
-app.delete('/api/auth/me', auth, async (req, res) => {
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-
-    // 1. If user is a business owner, delete associated business & items
-    const ownerRow = await client.query('SELECT business_id FROM business_owners WHERE user_id = $1', [req.user.id]);
-    if (ownerRow.rows.length > 0) {
-      const bizId = ownerRow.rows[0].business_id;
-
-      // Clean up Supabase storage photos for this business if any
-      const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
-      for (const p of photos.rows) {
-        if (p.storage_path) {
-          try {
-            await storageRequest('/object/' + encodeURIComponent(SUPABASE_STORAGE_BUCKET), {
-              method: 'DELETE',
-              body: JSON.stringify({ prefixes: [p.storage_path] })
-            });
-          } catch (err) {
-            console.warn('Storage photo deletion warning:', err.message);
-          }
-        }
-      }
-
-      // Deleting from businesses cascades items, business_hours, and business_photos via schema FKs
-      await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
-    }
-
-    // 2. Clear sessions and delete user account
-    await client.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
-
-    await client.query('COMMIT');
-
-    // Clear session cookie
-    res.clearCookie('jg_session', { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/' });
-    res.json({ ok: true, message: 'Account and associated business data deleted successfully.' });
-  } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
-    res.status(500).json({ error: e.message || 'Could not delete profile.' });
-  } finally {
-    client.release();
-  }
-});
