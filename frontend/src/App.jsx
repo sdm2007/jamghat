@@ -8,16 +8,295 @@ import {
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const DEFAULT_LOCATION = { lat: 22.7196, lng: 75.8577, label: 'Bada Bazaar, Indore' };
-const registerCategories = ['Grocery','Books & Stationery','Beauty & Barber','Tailor','Mobile Repair','Bakery','Hardware','Home Services','Agriculture & Tools','Dairy & Sweets','Fruits & Vegetables','Footwear','Household & Kitchen','Mobile Accessories','Kids & Toys','Tea & Snacks','Other'];
-const categories = [
-  ['ALL','All / सब','🏪'],['Books & Stationery','Books','📚'],['Grocery','Grocery','🛒'],['Beauty & Barber','Salon','✂️'],
-  ['Tailor','Tailor','🧵'],['Mobile Repair','Mobile','📱'],['Bakery','Bakery','🥐'],['Hardware','Hardware','🔧'],['Home Services','Services','🏠'],['Agriculture & Tools','Kisan','🚜']
+
+const registerCategories = [
+  'Grocery', 'Books & Stationery', 'Beauty & Barber', 'Tailor', 'Mobile Repair', 'Bakery',
+  'Hardware', 'Home Services', 'Agriculture & Tools', 'Dairy & Sweets', 'Fruits & Vegetables',
+  'Footwear', 'Household & Kitchen', 'Mobile Accessories', 'Kids & Toys', 'Tea & Snacks', 'Other'
 ];
+
 const i18n = {
-  en: { tagline: 'Know price. Know stock. Buy nearby.', search: "Search products, services, or local shops…", nearby: 'Nearby local businesses', open: 'Open now', closed: 'Closed', login: 'Business login', register: 'List your shop', catalog: 'Catalog & pricing', hours: 'Opening hours', dashboard: 'Business dashboard' },
-  hi: { tagline: 'दुकान पास, भाव साफ़, सामान पक्का।', search: 'सामान, सेवा या स्थानीय दुकान खोजें…', nearby: 'आपके आस-पास की दुकानें', open: 'अभी खुला', closed: 'बंद', login: 'दुकानदार लॉग इन', register: 'अपनी दुकान जोड़ें', catalog: 'कैटलॉग और भाव', hours: 'खुलने का समय', dashboard: 'दुकानदार डैशबोर्ड' }
+  en: {
+    tagline: 'Know price. Know stock. Buy nearby.',
+    search: 'Search products, services, or local shops…',
+    nearby: 'Nearby local businesses',
+    localOptions: 'local options',
+    open: 'Open now',
+    closed: 'Closed',
+    closedToday: 'Closed today',
+    opensAt: 'Opens',
+    closesAt: 'Closes',
+    login: 'Business login',
+    register: 'List your shop',
+    catalog: 'Catalog & pricing',
+    hours: 'Opening hours',
+    weeklyHours: 'Weekly hours',
+    dashboard: 'Business dashboard',
+    home: 'Home',
+    admin: 'Admin',
+    myShop: 'My shop',
+    logout: 'Log out',
+    localDiscovery: 'LOCAL DISCOVERY',
+    heroTitle1: 'Find what you need,',
+    heroTitle2: 'nearby.',
+    heroSubtitle: 'Compare local prices, availability and opening hours before you go.',
+    yourLocation: 'YOUR LOCATION',
+    chooseLocation: 'Choose your location',
+    useMyLocation: 'Use my location',
+    locating: 'Locating…',
+    locationNotSet: 'Location not set',
+    pinnedLocation: 'Pinned map location',
+    currentLocationText: 'Your current location',
+    exploreMap: 'EXPLORE ON MAP',
+    liveLocationMap: 'LIVE LOCATION MAP',
+    whoServesArea: 'Who serves this area?',
+    whatIsNearby: 'What is nearby?',
+    tapToExplore: 'Tap to explore nearby shops and services',
+    tapToHide: 'Tap to hide the map.',
+    homeServiceRadar: 'HOME SERVICE RADAR',
+    whoCanCome: 'Who can come to your area?',
+    radarSubtitle: 'Coverage, live availability, visit charge and contact details',
+    yourArea: 'Your area',
+    nearbyShort: 'Nearby',
+    visit: 'Visit',
+    viewServiceDetails: 'View service details',
+    viewDetails: 'View details',
+    listed: 'listed',
+    listedItems: 'listed items',
+    backToDiscovery: 'Back to discovery',
+    about: 'About',
+    callBusiness: 'Call business',
+    contact: 'Contact',
+    serviceCoverage: 'Service coverage',
+    serviceArea: 'Service area',
+    areaNotSpecified: 'Area not specified',
+    maxRadius: 'Maximum radius',
+    visitCharge: 'Visit charge',
+    availability: 'Availability',
+    availableNow: 'Available now',
+    currentlyClosed: 'Currently closed',
+    emergency: 'Emergency',
+    appointment: 'Appointment',
+    inStock: 'In stock',
+    lowStock: 'Low stock',
+    mediumStock: 'Medium stock',
+    outOfStock: 'Out of stock',
+    unverified: 'Unverified',
+    availabilityUnverified: 'Availability unverified',
+    onlyLeft: 'Only {n} left',
+    itemsMatching: 'Items matching “{query}”',
+    comparePricesBeforeVisit: 'Compare listed prices and shops before visiting',
+    noItemsFound: 'No exact item listing found for this search.',
+    emptyNearby: "We couldn't find this nearby. Try another search or expand your area.",
+    loadingInfo: 'Loading local information…',
+    priceOnRequest: 'Price on request',
+    startingAt: 'Starting at ₹{p}',
+    fromPrice: 'From ₹{p}',
+    contactForPrice: 'Contact for price',
+    marketPriceRange: 'Market price range: ₹{min}–₹{max} ({count} listings)',
+    notEnoughListings: 'Market price range: Not enough comparable listings yet',
+    checkWithShop: 'Check availability with shop',
+    shopPhotos: 'Shop photos',
+    noPhotosYet: 'No photos yet.',
+    overview: 'Overview',
+    inventory: 'Inventory',
+    demandTips: 'Demand tips',
+    oneTimeChange: 'One-time change for today',
+    save: 'Save',
+    saveChanges: 'Save changes',
+    addDescription: 'Add a description to improve your listing.',
+    itemsCount: 'Items',
+    enterExactQty: 'Enter the exact quantity.',
+    addItem: 'Add item',
+    noTips: 'No tips right now.',
+    profileComplete: '% profile complete',
+    insideCoverage: 'You are inside this service area',
+    outsideCoverage: 'You are outside this service area',
+    customerLocationNotSet: 'Customer location not set',
+    allCategory: 'All',
+    booksCategory: 'Books',
+    groceryCategory: 'Grocery',
+    salonCategory: 'Salon',
+    tailorCategory: 'Tailor',
+    mobileCategory: 'Mobile',
+    bakeryCategory: 'Bakery',
+    hardwareCategory: 'Hardware',
+    servicesCategory: 'Services',
+    kisanCategory: 'Kisan'
+  },
+  hi: {
+    tagline: 'दुकान पास, भाव साफ़, सामान पक्का।',
+    search: 'सामान, सेवा या स्थानीय दुकान खोजें…',
+    nearby: 'आपके आस-पास की दुकानें',
+    localOptions: 'स्थानीय विकल्प',
+    open: 'अभी खुला है',
+    closed: 'बंद है',
+    closedToday: 'आज बंद है',
+    opensAt: 'खुलने का समय',
+    closesAt: 'बंद होने का समय',
+    login: 'दुकानदार लॉग इन',
+    register: 'अपनी दुकान जोड़ें',
+    catalog: 'कैटलॉग और भाव',
+    hours: 'खुलने का समय',
+    weeklyHours: 'साप्ताहिक समय',
+    dashboard: 'दुकानदार डैशबोर्ड',
+    home: 'होम',
+    admin: 'व्यवस्थापक',
+    myShop: 'मेरी दुकान',
+    logout: 'लॉग आउट',
+    localDiscovery: 'स्थानीय खोज',
+    heroTitle1: 'ज़रूरी सामान पाएं,',
+    heroTitle2: 'अपने पास।',
+    heroSubtitle: 'दुकान जाने से पहले आस-पास के भाव, स्टॉक और खुलने का समय जांचें।',
+    yourLocation: 'आपकी लोकेशन',
+    chooseLocation: 'अपनी लोकेशन चुनें',
+    useMyLocation: 'मेरी लोकेशन का उपयोग करें',
+    locating: 'लोकेशन खोजी जा रही है…',
+    locationNotSet: 'लोकेशन सेट नहीं है',
+    pinnedLocation: 'मैप पर चुनी लोकेशन',
+    currentLocationText: 'आपकी वर्तमान लोकेशन',
+    exploreMap: 'नक्शे पर देखें',
+    liveLocationMap: 'लाइव लोकेशन मैप',
+    whoServesArea: 'इस क्षेत्र में कौन सी सेवाएं उपलब्ध हैं?',
+    whatIsNearby: 'आस-पास क्या है?',
+    tapToExplore: 'आस-पास की दुकानों को देखने के लिए टैप करें',
+    tapToHide: 'नक्शा छिपाने के लिए टैप करें',
+    homeServiceRadar: 'होम सर्विस रडार',
+    whoCanCome: 'आपके घर तक कौन सी सर्विस आ सकती है?',
+    radarSubtitle: 'सर्विस कवरेज, उपलब्धता, विजिट चार्ज और संपर्क नंबर',
+    yourArea: 'आपका क्षेत्र',
+    nearbyShort: 'आस-पास',
+    visit: 'विजिट',
+    viewServiceDetails: 'सर्विस का विवरण देखें',
+    viewDetails: 'विवरण देखें',
+    listed: 'लिस्टेड',
+    listedItems: 'लिस्टेड आइटम',
+    backToDiscovery: 'वापस खोज पर जाएं',
+    about: 'दुकान के बारे में',
+    callBusiness: 'कॉल करें',
+    contact: 'संपर्क करें',
+    serviceCoverage: 'सर्विस कवरेज',
+    serviceArea: 'सर्विस क्षेत्र',
+    areaNotSpecified: 'क्षेत्र निर्दिष्ट नहीं है',
+    maxRadius: 'अधिकतम दायरा',
+    visitCharge: 'विजिट चार्ज',
+    availability: 'उपलब्धता',
+    availableNow: 'अभी उपलब्ध है',
+    currentlyClosed: 'अभी बंद है',
+    emergency: 'आपातकालीन',
+    appointment: 'अपॉइंटमेंट',
+    inStock: 'उपलब्ध है',
+    lowStock: 'कम स्टॉक',
+    mediumStock: 'मध्यम स्टॉक',
+    outOfStock: 'स्टॉक समाप्त',
+    unverified: 'असत्यापित',
+    availabilityUnverified: 'उपलब्धता असत्यापित',
+    onlyLeft: 'केवल {n} बचे हैं',
+    itemsMatching: '“{query}” से जुड़े सामान',
+    comparePricesBeforeVisit: 'दुकान जाने से पहले भाव और स्टॉक जांच लें',
+    noItemsFound: 'इस खोज के लिए कोई सामान नहीं मिला।',
+    emptyNearby: 'आस-पास कोई दुकान नहीं मिली। दूसरा शब्द खोजें या दायरा बढ़ाएं।',
+    loadingInfo: 'जानकारी लोड हो रही है…',
+    priceOnRequest: 'पूछने पर भाव',
+    startingAt: 'शुरुआती भाव ₹{p}',
+    fromPrice: 'न्यूनतम ₹{p}',
+    contactForPrice: 'भाव के लिए संपर्क करें',
+    marketPriceRange: 'बाज़ार भाव दायरा: ₹{min}–₹{max} ({count} दुकानें)',
+    notEnoughListings: 'बाज़ार भाव दायरा: अभी पर्याप्त तुलनात्मक लिस्टिंग नहीं हैं',
+    checkWithShop: 'दुकान से उपलब्धता की पुष्टि करें',
+    shopPhotos: 'दुकान की तस्वीरें',
+    noPhotosYet: 'अभी कोई तस्वीर नहीं है।',
+    overview: 'विवरण',
+    inventory: 'स्टॉक सूची',
+    demandTips: 'मांग के सुझाव',
+    oneTimeChange: 'केवल आज के लिए बदलाव',
+    save: 'सेव करें',
+    saveChanges: 'बदलाव सेव करें',
+    addDescription: 'लिस्टिंग बेहतर बनाने के लिए विवरण जोड़ें।',
+    itemsCount: 'सामान',
+    enterExactQty: 'सटीक मात्रा दर्ज करें।',
+    addItem: 'सामान जोड़ें',
+    noTips: 'अभी कोई सुझाव उपलब्ध नहीं हैं।',
+    profileComplete: '% प्रोफ़ाइल पूर्ण',
+    insideCoverage: 'आप इस सर्विस क्षेत्र के अंदर हैं',
+    outsideCoverage: 'आप इस सर्विस क्षेत्र से बाहर हैं',
+    customerLocationNotSet: 'ग्राहक लोकेशन सेट नहीं है',
+    allCategory: 'सब',
+    booksCategory: 'किताबें',
+    groceryCategory: 'किराना',
+    salonCategory: 'सैलून',
+    tailorCategory: 'टेलर',
+    mobileCategory: 'मोबाइल रिपेयर',
+    bakeryCategory: 'बेकरी',
+    hardwareCategory: 'हार्डवेयर',
+    servicesCategory: 'होम सर्विसेज',
+    kisanCategory: 'किसान उपकरण'
+  }
 };
-const distText = b => { const d = Number(b?.distance); return Number.isFinite(d) && d < 900 ? `${d} km` : ''; };
+
+const getCategoryList = t => [
+  ['ALL', t.allCategory, '🏪'],
+  ['Books & Stationery', t.booksCategory, '📚'],
+  ['Grocery', t.groceryCategory, '🛒'],
+  ['Beauty & Barber', t.salonCategory, '✂️'],
+  ['Tailor', t.tailorCategory, '🧵'],
+  ['Mobile Repair', t.mobileCategory, '📱'],
+  ['Bakery', t.bakeryCategory, '🥐'],
+  ['Hardware', t.hardwareCategory, '🔧'],
+  ['Home Services', t.servicesCategory, '🏠'],
+  ['Agriculture & Tools', t.kisanCategory, '🚜']
+];
+
+const distText = (b, lang) => {
+  const d = Number(b?.distance);
+  return Number.isFinite(d) && d < 900 ? `${d} km` : '';
+};
+
+function priceText(i, t) {
+  if (i.price_type === 'ON_REQUEST') return t.priceOnRequest;
+  if (i.price_type === 'STARTING') return t.startingAt.replace('{p}', i.price_min ?? i.price);
+  if (i.price_type === 'FROM') return t.fromPrice.replace('{p}', i.price_min ?? i.price);
+  if (i.price_type === 'RANGE') return `₹${i.price_min}–₹${i.price_max}`;
+  return i.price == null ? t.contactForPrice : `₹${i.price}`;
+}
+
+function marketPriceText(i, t) {
+  if (i.market_price_count >= 2 && i.market_price_min != null && i.market_price_max != null) {
+    return t.marketPriceRange
+      .replace('{min}', Number(i.market_price_min).toLocaleString('en-IN'))
+      .replace('{max}', Number(i.market_price_max).toLocaleString('en-IN'))
+      .replace('{count}', i.market_price_count);
+  }
+  return t.notEnoughListings;
+}
+
+function stockLabel(i, t) {
+  if (!i.availability_verified) return t.unverified;
+  if (i.quantity > 0 && i.quantity < 5) return t.onlyLeft.replace('{n}', i.quantity);
+  if (i.status === 'IN_STOCK') return t.inStock;
+  if (i.status === 'MEDIUM_STOCK') return t.mediumStock;
+  if (i.status === 'LOW_STOCK') return t.lowStock;
+  return t.outOfStock;
+}
+
+function relative(ts) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 60000));
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  return `${Math.round(h / 24)} day ago`;
+}
+
+function formatTime(v) {
+  if (!v) return '';
+  const [h, m] = v.split(':').map(Number);
+  const d = new Date(2000, 0, 1, h, m);
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+}
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('mh-theme') || 'system');
@@ -32,25 +311,52 @@ function App() {
   const [error, setError] = useState('');
   const [authMode, setAuthMode] = useState(null);
   const [notice, setNotice] = useState('');
-  const [customerLocation, setCustomerLocation] = useState(() => { try { return JSON.parse(localStorage.getItem('mh-location')) || DEFAULT_LOCATION; } catch { return DEFAULT_LOCATION; } });
+  const [customerLocation, setCustomerLocation] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('mh-location')) || DEFAULT_LOCATION;
+    } catch {
+      return DEFAULT_LOCATION;
+    }
+  });
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
-  const t = i18n[lang];
+  const t = i18n[lang] || i18n.en;
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('mh-theme', theme); }, [theme]);
-  useEffect(() => { localStorage.setItem('mh-lang', lang); }, [lang]);
-  useEffect(() => { api('/auth/me').then(x => { setUser(x.user); setPage(x.user.role === 'ADMIN' ? 'admin' : 'dashboard'); }).catch(() => {}); }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('mh-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('mh-lang', lang);
+  }, [lang]);
+
+  useEffect(() => {
+    api('/auth/me')
+      .then(x => {
+        setUser(x.user);
+        setPage(x.user.role === 'ADMIN' ? 'admin' : 'dashboard');
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verificationToken = params.get('verify_email');
     if (!verificationToken) return;
-    api(`/auth/verify-email?token=${encodeURIComponent(verificationToken)}`).then(x => setNotice(x.message || 'Email verified. You can now sign in.')).catch(e => setNotice(e.message)).finally(() => {
-      params.delete('verify_email');
-      const qs = params.toString();
-      window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
-    });
+    api(`/auth/verify-email?token=${encodeURIComponent(verificationToken)}`)
+      .then(x => setNotice(x.message || 'Email verified. You can now sign in.'))
+      .catch(e => setNotice(e.message))
+      .finally(() => {
+        params.delete('verify_email');
+        const qs = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+      });
   }, []);
-  useEffect(() => { loadBusinesses(); }, [query, category, customerLocation?.lat, customerLocation?.lng]);
+
+  useEffect(() => {
+    loadBusinesses();
+  }, [query, category, customerLocation?.lat, customerLocation?.lng]);
 
   async function api(path, opts = {}) {
     const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -68,7 +374,13 @@ function App() {
     setLoading(true);
     setError('');
     try {
-      setBusinesses(await api(`/businesses?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category === 'ALL' ? '' : category)}&lat=${encodeURIComponent(customerLocation?.lat || '')}&lng=${encodeURIComponent(customerLocation?.lng || '')}`));
+      setBusinesses(
+        await api(
+          `/businesses?q=${encodeURIComponent(query)}&category=${encodeURIComponent(
+            category === 'ALL' ? '' : category
+          )}&lat=${encodeURIComponent(customerLocation?.lat || '')}&lng=${encodeURIComponent(customerLocation?.lng || '')}`
+        )
+      );
     } catch (e) {
       setError(e.message);
     } finally {
@@ -83,17 +395,28 @@ function App() {
 
   async function useMyLocation() {
     setLocationMessage('');
-    if (!navigator.geolocation) { setLocationMessage('Location is not supported by this browser.'); return; }
+    if (!navigator.geolocation) {
+      setLocationMessage('Location is not supported by this browser.');
+      return;
+    }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(pos => {
-      const next = { lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)), label: 'Your current location' };
-      chooseCustomerLocation(next);
-      setLocationMessage('Using your current location.');
-      setLocating(false);
-    }, err => {
-      setLocationMessage(err.code === 1 ? 'Location permission was denied.' : 'Unable to get your location.');
-      setLocating(false);
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const next = {
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+          label: t.currentLocationText
+        };
+        chooseCustomerLocation(next);
+        setLocationMessage(t.currentLocationText);
+        setLocating(false);
+      },
+      err => {
+        setLocationMessage(err.code === 1 ? 'Location permission was denied.' : 'Unable to get your location.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
   }
 
   async function login(email, password) {
@@ -104,7 +427,9 @@ function App() {
   }
 
   async function logout() {
-    try { await api('/auth/logout', { method: 'POST' }); } catch {}
+    try {
+      await api('/auth/logout', { method: 'POST' });
+    } catch {}
     setUser(null);
     setPage('home');
   }
@@ -123,39 +448,117 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" onClick={() => { setPage('home'); setSelected(null); }}>
+        <button
+          className="brand"
+          onClick={() => {
+            setPage('home');
+            setSelected(null);
+          }}
+        >
           <span className="brand-mark" style={{ background: 'transparent', padding: 0 }}>
-            <img src="/logo.png" alt="Jamghat" onError={e => { e.target.style.display = 'none'; e.target.parentNode.textContent = 'J'; }} />
+            <img
+              src="/logo.png"
+              alt="Jamghat"
+              onError={e => {
+                e.target.style.display = 'none';
+                e.target.parentNode.textContent = 'J';
+              }}
+            />
           </span>
-          <span><b>Jamghat</b><small>{t.tagline}</small></span>
+          <span>
+            <b>Jamghat</b>
+            <small>{t.tagline}</small>
+          </span>
         </button>
         <div className="top-actions">
-          <button className="icon-btn" title="Language" onClick={() => setLang(x => x === 'en' ? 'hi' : 'en')}>{lang === 'en' ? 'हिन्दी' : 'EN'}</button>
+          <button className="icon-btn" title="Language" onClick={() => setLang(x => (x === 'en' ? 'hi' : 'en'))}>
+            {lang === 'en' ? 'हिन्दी' : 'EN'}
+          </button>
           <ThemeButton theme={theme} setTheme={setTheme} />
           {user ? (
             <>
-              <button className="primary small" onClick={() => setPage(homeOfUser)}>{user.role === 'ADMIN' ? 'Admin' : 'My shop'}</button>
-              <button className="icon-btn" title="Log out" onClick={logout}><LogOut size={16} /></button>
+              <button className="primary small" onClick={() => setPage(homeOfUser)}>
+                {user.role === 'ADMIN' ? t.admin : t.myShop}
+              </button>
+              <button className="icon-btn" title="Log out" onClick={logout}>
+                <LogOut size={16} />
+              </button>
             </>
           ) : (
-            <button className="secondary small" onClick={() => setAuthMode('login')}>{t.login}</button>
+            <button className="secondary small" onClick={() => setAuthMode('login')}>
+              {t.login}
+            </button>
           )}
         </div>
       </header>
-      {error && <div className="error-banner"><AlertTriangle size={16} />{error}<button onClick={() => setError('')}><X size={15} /></button></div>}
-      {notice && <div className="notice" style={{ margin: '12px 24px 0' }}>{notice}<button style={{ float: 'right', border: 0, background: 'none', cursor: 'pointer' }} onClick={() => setNotice('')}><X size={14} /></button></div>}
+      {error && (
+        <div className="error-banner">
+          <AlertTriangle size={16} />
+          {error}
+          <button onClick={() => setError('')}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+      {notice && (
+        <div className="notice" style={{ margin: '12px 24px 0' }}>
+          {notice}
+          <button style={{ float: 'right', border: 0, background: 'none', cursor: 'pointer' }} onClick={() => setNotice('')}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <main className="content">
-        {page === 'home' && <Home query={query} setQuery={setQuery} category={category} setCategory={setCategory} businesses={businesses} loading={loading} openBusiness={openBusiness} t={t} customerLocation={customerLocation} locating={locating} useMyLocation={useMyLocation} locationMessage={locationMessage} setCustomerLocation={chooseCustomerLocation} onRegister={() => setAuthMode('register')} showRegister={!user} />}
-        {page === 'business' && selected && <Business business={selected} onBack={() => setPage('home')} t={t} customerLocation={customerLocation} setCustomerLocation={chooseCustomerLocation} />}
+        {page === 'home' && (
+          <Home
+            query={query}
+            setQuery={setQuery}
+            category={category}
+            setCategory={setCategory}
+            businesses={businesses}
+            loading={loading}
+            openBusiness={openBusiness}
+            t={t}
+            customerLocation={customerLocation}
+            locating={locating}
+            useMyLocation={useMyLocation}
+            locationMessage={locationMessage}
+            setCustomerLocation={chooseCustomerLocation}
+            onRegister={() => setAuthMode('register')}
+            showRegister={!user}
+          />
+        )}
+        {page === 'business' && selected && (
+          <Business
+            business={selected}
+            onBack={() => setPage('home')}
+            t={t}
+            customerLocation={customerLocation}
+            setCustomerLocation={chooseCustomerLocation}
+          />
+        )}
         {page === 'dashboard' && user?.role === 'BUSINESS_OWNER' && <BusinessDashboard api={api} logout={logout} t={t} />}
-        {page === 'admin' && user?.role === 'ADMIN' && <AdminDashboard api={api} logout={logout} />}
+        {page === 'admin' && user?.role === 'ADMIN' && <AdminDashboard api={api} logout={logout} t={t} />}
       </main>
       <nav className="bottom-nav">
-        <NavButton icon={<Compass />} label="Home" active={page === 'home'} onClick={() => { setPage('home'); setSelected(null); }} />
+        <NavButton
+          icon={<Compass />}
+          label={t.home}
+          active={page === 'home'}
+          onClick={() => {
+            setPage('home');
+            setSelected(null);
+          }}
+        />
         {user ? (
           <>
-            <NavButton icon={<Store />} label={user.role === 'ADMIN' ? 'Admin' : 'My shop'} active={page === homeOfUser} onClick={() => setPage(homeOfUser)} />
-            <NavButton icon={<LogOut />} label="Log out" onClick={logout} />
+            <NavButton
+              icon={<Store />}
+              label={user.role === 'ADMIN' ? t.admin : t.myShop}
+              active={page === homeOfUser}
+              onClick={() => setPage(homeOfUser)}
+            />
+            <NavButton icon={<LogOut />} label={t.logout} onClick={logout} />
           </>
         ) : (
           <>
@@ -164,72 +567,166 @@ function App() {
           </>
         )}
       </nav>
-      {authMode && <AuthModal initialMode={authMode} onClose={() => setAuthMode(null)} onLogin={login} onResend={async email => api('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) })} onRegister={async d => { const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) }); setAuthMode(null); setNotice(result.message || 'Check your email to verify your account.'); }} />}
+      {authMode && (
+        <AuthModal
+          initialMode={authMode}
+          onClose={() => setAuthMode(null)}
+          onLogin={login}
+          t={t}
+          onResend={async email => api('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) })}
+          onRegister={async d => {
+            const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) });
+            setAuthMode(null);
+            setNotice(result.message || 'Check your email to verify your account.');
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function NavButton({ icon, label, active, onClick }) {
-  return <button className={active ? 'nav-btn active' : 'nav-btn'} onClick={onClick}>{React.cloneElement(icon, { size: 20 })}<span>{label}</span></button>;
+  return (
+    <button className={active ? 'nav-btn active' : 'nav-btn'} onClick={onClick}>
+      {React.cloneElement(icon, { size: 20 })}
+      <span>{label}</span>
+    </button>
+  );
 }
 
 function ThemeButton({ theme, setTheme }) {
-  return <button className="icon-btn" title="Theme" onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}>{theme === 'dark' ? <Moon size={17} /> : theme === 'light' ? <Sun size={17} /> : <Monitor size={17} />}</button>;
+  return (
+    <button
+      className="icon-btn"
+      title="Theme"
+      onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
+    >
+      {theme === 'dark' ? <Moon size={17} /> : theme === 'light' ? <Sun size={17} /> : <Monitor size={17} />}
+    </button>
+  );
 }
 
-function Home({ query, setQuery, category, setCategory, businesses, loading, openBusiness, t, customerLocation, locating, useMyLocation, locationMessage, setCustomerLocation, onRegister, showRegister }) {
+function Home({
+  query,
+  setQuery,
+  category,
+  setCategory,
+  businesses,
+  loading,
+  openBusiness,
+  t,
+  customerLocation,
+  locating,
+  useMyLocation,
+  locationMessage,
+  setCustomerLocation,
+  onRegister,
+  showRegister
+}) {
   return (
     <div className="stack">
       <section className="hero">
         <div>
-          <span className="eyebrow">LOCAL DISCOVERY</span>
-          <h1>Find what you need,<br /><span>nearby.</span></h1>
-          <p>Compare local prices, availability and opening hours before you go.</p>
-          {showRegister && <button type="button" className="hero-cta" onClick={onRegister}><Store size={16} /> {t.register}</button>}
+          <span className="eyebrow">{t.localDiscovery}</span>
+          <h1>
+            {t.heroTitle1}
+            <br />
+            <span>{t.heroTitle2}</span>
+          </h1>
+          <p>{t.heroSubtitle}</p>
+          {showRegister && (
+            <button type="button" className="hero-cta" onClick={onRegister}>
+              <Store size={16} /> {t.register}
+            </button>
+          )}
         </div>
         <div className="hero-orb">⌁</div>
       </section>
       <div className="search-wrap">
         <Search size={19} />
         <input id="market-search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t.search} />
-        {query && <button onClick={() => setQuery('')}><X size={17} /></button>}
+        {query && (
+          <button onClick={() => setQuery('')}>
+            <X size={17} />
+          </button>
+        )}
       </div>
-      <LocationBar location={customerLocation} locating={locating} onLocate={useMyLocation} message={locationMessage} />
-      <GoogleMapView businesses={businesses} customerLocation={customerLocation} homeServices={category === 'Home Services'} openBusiness={openBusiness} onLocationChange={setCustomerLocation} />
+      <LocationBar location={customerLocation} locating={locating} onLocate={useMyLocation} message={locationMessage} t={t} />
+      <GoogleMapView
+        businesses={businesses}
+        customerLocation={customerLocation}
+        homeServices={category === 'Home Services'}
+        openBusiness={openBusiness}
+        onLocationChange={setCustomerLocation}
+        t={t}
+      />
       <div className="chips">
-        {categories.map(([id, label, icon]) => <button key={id} className={category === id ? 'chip active' : 'chip'} onClick={() => setCategory(id)}><span>{icon}</span>{label}</button>)}
+        {getCategoryList(t).map(([id, label, icon]) => (
+          <button key={id} className={category === id ? 'chip active' : 'chip'} onClick={() => setCategory(id)}>
+            <span>{icon}</span>
+            {label}
+          </button>
+        ))}
       </div>
-      {category === 'Home Services' && !query && <HomeServiceRadar businesses={businesses} openBusiness={openBusiness} />}
+      {category === 'Home Services' && !query && <HomeServiceRadar businesses={businesses} openBusiness={openBusiness} t={t} />}
       <section>
         <div className="section-head">
-          <div><h2>{t.nearby}</h2><small>{businesses.length} local options</small></div>
+          <div>
+            <h2>{t.nearby}</h2>
+            <small>
+              {businesses.length} {t.localOptions}
+            </small>
+          </div>
           <SlidersHorizontal size={18} />
         </div>
-        {loading ? <Loading /> : businesses.length === 0 ? <Empty text="We couldn't find this nearby. Try another search or expand your area." /> : <div className="business-grid">{businesses.map(b => <BusinessCard key={b.id} b={b} openBusiness={openBusiness} t={t} />)}</div>}
+        {loading ? (
+          <Loading text={t.loadingInfo} />
+        ) : businesses.length === 0 ? (
+          <Empty text={t.emptyNearby} />
+        ) : (
+          <div className="business-grid">
+            {businesses.map(b => (
+              <BusinessCard key={b.id} b={b} openBusiness={openBusiness} t={t} />
+            ))}
+          </div>
+        )}
       </section>
-      {query.trim() && <ProductSearchListings query={query} businesses={businesses} openBusiness={openBusiness} />}
+      {query.trim() && <ProductSearchListings query={query} businesses={businesses} openBusiness={openBusiness} t={t} />}
     </div>
   );
 }
 
-function LocationBar({ location, locating, onLocate, message }) {
+function LocationBar({ location, locating, onLocate, message, t }) {
   const lat = location?.lat || DEFAULT_LOCATION.lat;
   const lng = location?.lng || DEFAULT_LOCATION.lng;
   return (
     <section className="location-bar panel">
       <div className="location-main">
-        <div className="location-icon"><Navigation size={18} /></div>
+        <div className="location-icon">
+          <Navigation size={18} />
+        </div>
         <div>
-          <span className="eyebrow">YOUR LOCATION</span>
-          <b>{location?.label || 'Choose your location'}</b>
-          <small>{location?.lat && location?.lng ? `${Number(location.lat).toFixed(5)}, ${Number(location.lng).toFixed(5)}` : 'Location not set'}</small>
+          <span className="eyebrow">{t.yourLocation}</span>
+          <b>{location?.label || t.chooseLocation}</b>
+          <small>
+            {location?.lat && location?.lng
+              ? `${Number(location.lat).toFixed(5)}, ${Number(location.lng).toFixed(5)}`
+              : t.locationNotSet}
+          </small>
         </div>
       </div>
       <div className="location-actions">
         <button className="secondary small" onClick={onLocate} disabled={locating}>
-          {locating ? <RefreshCw size={15} className="spin" /> : <LocateFixed size={15} />} {locating ? 'Locating…' : 'Use my location'}
+          {locating ? <RefreshCw size={15} className="spin" /> : <LocateFixed size={15} />}{' '}
+          {locating ? t.locating : t.useMyLocation}
         </button>
-        <a className="icon-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`} target="_blank" rel="noreferrer" title="Open location in Google Maps">
+        <a
+          className="icon-btn"
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`}
+          target="_blank"
+          rel="noreferrer"
+          title="Open location in Google Maps"
+        >
           <ExternalLink size={15} />
         </a>
       </div>
@@ -238,7 +735,7 @@ function LocationBar({ location, locating, onLocate, message }) {
   );
 }
 
-function GoogleMapView({ businesses, customerLocation, homeServices, openBusiness, onLocationChange }) {
+function GoogleMapView({ businesses, customerLocation, homeServices, openBusiness, onLocationChange, t }) {
   const [expanded, setExpanded] = useState(false);
   const ref = useRef(null);
   const mapRef = useRef(null);
@@ -254,12 +751,17 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
       setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable the live Google Map.');
       return;
     }
-    if (window.google?.maps) { setReady(true); return; }
+    if (window.google?.maps) {
+      setReady(true);
+      return;
+    }
     const existing = document.getElementById('google-maps-script');
     if (existing) {
       existing.addEventListener('load', () => !cancelled && setReady(true));
       existing.addEventListener('error', () => !cancelled && setMapError('Google Maps could not be loaded.'));
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
@@ -269,7 +771,9 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
     script.onload = () => !cancelled && setReady(true);
     script.onerror = () => !cancelled && setMapError('Google Maps could not be loaded.');
     document.head.appendChild(script);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -283,11 +787,27 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
       return;
     }
     if (!ready || !ref.current || !window.google?.maps) return;
-    const center = { lat: Number(customerLocation?.lat || DEFAULT_LOCATION.lat), lng: Number(customerLocation?.lng || DEFAULT_LOCATION.lng) };
+    const center = {
+      lat: Number(customerLocation?.lat || DEFAULT_LOCATION.lat),
+      lng: Number(customerLocation?.lng || DEFAULT_LOCATION.lng)
+    };
     if (!mapRef.current) {
-      mapRef.current = new window.google.maps.Map(ref.current, { center, zoom: 13, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, gestureHandling: 'greedy' });
+      mapRef.current = new window.google.maps.Map(ref.current, {
+        center,
+        zoom: 13,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        gestureHandling: 'greedy'
+      });
       mapRef.current.addListener('click', e => {
-        if (e.latLng && onLocationChange) onLocationChange({ lat: Number(e.latLng.lat().toFixed(6)), lng: Number(e.latLng.lng().toFixed(6)), label: 'Pinned map location' });
+        if (e.latLng && onLocationChange) {
+          onLocationChange({
+            lat: Number(e.latLng.lat().toFixed(6)),
+            lng: Number(e.latLng.lng().toFixed(6)),
+            label: t.pinnedLocation
+          });
+        }
       });
     } else mapRef.current.setCenter(center);
 
@@ -297,111 +817,228 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
     circlesRef.current = [];
     if (infoRef.current) infoRef.current.close();
 
-    const customerMarker = new window.google.maps.Marker({ map: mapRef.current, position: center, title: 'Your location', label: { text: 'You', color: '#ffffff', fontWeight: '800' }, icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#e65f20', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 } });
+    const customerMarker = new window.google.maps.Marker({
+      map: mapRef.current,
+      position: center,
+      title: 'Your location',
+      label: { text: 'You', color: '#ffffff', fontWeight: '800' },
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: '#e65f20',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      }
+    });
     markersRef.current.push(customerMarker);
     const bounds = new window.google.maps.LatLngBounds();
     bounds.extend(center);
     const list = businesses.filter(b => b.latitude != null && b.longitude != null);
     list.forEach(b => {
       const pos = { lat: Number(b.latitude), lng: Number(b.longitude) };
-      const marker = new window.google.maps.Marker({ map: mapRef.current, position: pos, title: b.name, label: { text: b.name.slice(0, 1), color: '#ffffff', fontWeight: '800' } });
+      const marker = new window.google.maps.Marker({
+        map: mapRef.current,
+        position: pos,
+        title: b.name,
+        label: { text: b.name.slice(0, 1), color: '#ffffff', fontWeight: '800' }
+      });
       marker.addListener('click', () => {
         if (infoRef.current) infoRef.current.close();
-        const contentStr = '<div style="min-width:210px;font-family:Arial,sans-serif">' +
-          '<strong>' + escapeHtml(b.name) + '</strong>' +
-          '<div style="margin-top:5px;color:#666">' + escapeHtml(b.category) + ' · ' + escapeHtml(String(b.distance || '—')) + ' km away</div>' +
-          (b.home_visit ? ('<div style="margin-top:5px">Serves: ' + escapeHtml(b.service_area || 'Area not specified') + '</div><div>Coverage: up to ' + escapeHtml(String(b.max_service_radius || '—')) + ' km</div><div>Visit charge: ₹' + Number(b.visit_charge || 0).toLocaleString('en-IN') + '</div>') : '') +
-          '<button id="map-open-' + b.id + '" style="margin-top:8px;padding:6px 9px;border:0;border-radius:7px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">View details</button>' +
-        '</div>';
+        const contentStr =
+          '<div style="min-width:210px;font-family:Arial,sans-serif">' +
+          '<strong>' +
+          escapeHtml(b.name) +
+          '</strong>' +
+          '<div style="margin-top:5px;color:#666">' +
+          escapeHtml(b.category) +
+          ' · ' +
+          escapeHtml(String(b.distance || '—')) +
+          ' km away</div>' +
+          (b.home_visit
+            ? '<div style="margin-top:5px">Serves: ' +
+              escapeHtml(b.service_area || t.areaNotSpecified) +
+              '</div><div>Coverage: up to ' +
+              escapeHtml(String(b.max_service_radius || '—')) +
+              ' km</div><div>Visit charge: ₹' +
+              Number(b.visit_charge || 0).toLocaleString('en-IN') +
+              '</div>'
+            : '') +
+          '<button id="map-open-' +
+          b.id +
+          '" style="margin-top:8px;padding:6px 9px;border:0;border-radius:7px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">' +
+          escapeHtml(t.viewDetails) +
+          '</button>' +
+          '</div>';
         infoRef.current = new window.google.maps.InfoWindow({ content: contentStr });
         infoRef.current.open({ map: mapRef.current, anchor: marker });
-        window.setTimeout(() => document.getElementById(`map-open-${b.id}`)?.addEventListener('click', () => openBusiness(b)), 0);
+        window.setTimeout(
+          () => document.getElementById(`map-open-${b.id}`)?.addEventListener('click', () => openBusiness(b)),
+          0
+        );
       });
       markersRef.current.push(marker);
       bounds.extend(pos);
       if (homeServices && b.home_visit && Number(b.max_service_radius) > 0) {
-        const circle = new window.google.maps.Circle({ map: mapRef.current, center: pos, radius: Number(b.max_service_radius) * 1000, fillColor: '#e65f20', fillOpacity: .08, strokeColor: '#e65f20', strokeOpacity: .28, strokeWeight: 1 });
+        const circle = new window.google.maps.Circle({
+          map: mapRef.current,
+          center: pos,
+          radius: Number(b.max_service_radius) * 1000,
+          fillColor: '#e65f20',
+          fillOpacity: 0.08,
+          strokeColor: '#e65f20',
+          strokeOpacity: 0.28,
+          strokeWeight: 1
+        });
         circlesRef.current.push(circle);
       }
     });
     if (list.length > 0) mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [ready, expanded, businesses, customerLocation?.lat, customerLocation?.lng, homeServices, openBusiness]);
+  }, [ready, expanded, businesses, customerLocation?.lat, customerLocation?.lng, homeServices, openBusiness, t]);
 
   return (
     <section className={`map-panel panel map-collapsible ${expanded ? 'expanded' : ''}`}>
-      <button type="button" className="map-collapse-trigger" onClick={() => setExpanded(v => !v)} aria-expanded={expanded}>
-        <span className="map-collapse-icon"><MapPin size={22} /></span>
+      <button
+        type="button"
+        className="map-collapse-trigger"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+      >
+        <span className="map-collapse-icon">
+          <MapPin size={22} />
+        </span>
         <span className="map-collapse-copy">
-          <span className="eyebrow">{expanded ? 'LIVE LOCATION MAP' : 'EXPLORE ON MAP'}</span>
-          <b>{homeServices ? 'Who serves this area?' : 'What is nearby?'}</b>
-          <small>{expanded ? 'Tap to hide the map.' : 'Tap to explore nearby shops and services'}</small>
+          <span className="eyebrow">{expanded ? t.liveLocationMap : t.exploreMap}</span>
+          <b>{homeServices ? t.whoServesArea : t.whatIsNearby}</b>
+          <small>{expanded ? t.tapToHide : t.tapToExplore}</small>
         </span>
         <span className="map-collapse-chevron">{expanded ? '−' : '+'}</span>
       </button>
-      {expanded && (!GOOGLE_MAPS_API_KEY ? (
-        <div className="map-fallback"><MapPin size={24} /><div><b>Live location map ready</b><p>{mapError}</p></div></div>
-      ) : mapError ? (
-        <div className="error-banner">{mapError}</div>
-      ) : (
-        <div ref={ref} className="google-map" aria-label="Google map" />
-      ))}
+      {expanded &&
+        (!GOOGLE_MAPS_API_KEY ? (
+          <div className="map-fallback">
+            <MapPin size={24} />
+            <div>
+              <b>{t.liveLocationMap}</b>
+              <p>{mapError}</p>
+            </div>
+          </div>
+        ) : mapError ? (
+          <div className="error-banner">{mapError}</div>
+        ) : (
+          <div ref={ref} className="google-map" aria-label="Google map" />
+        ))}
     </section>
   );
 }
 
-function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
-
-function HomeServiceRadar({ businesses, openBusiness }) {
+function HomeServiceRadar({ businesses, openBusiness, t }) {
   const providers = businesses.filter(b => b.home_visit).slice(0, 10);
-  const angleFor = index => -90 + (index * 360 / Math.max(providers.length, 1));
+  const angleFor = index => -90 + (index * 360) / Math.max(providers.length, 1);
   return (
     <section className="service-radar panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">HOME SERVICE RADAR</span>
-          <h2>Who can come to your area?</h2>
-          <small>Coverage, live availability, visit charge and contact details</small>
+          <span className="eyebrow">{t.homeServiceRadar}</span>
+          <h2>{t.whoCanCome}</h2>
+          <small>{t.radarSubtitle}</small>
         </div>
-        <span className="radar-live"><span /> LIVE</span>
+        <span className="radar-live">
+          <span /> LIVE
+        </span>
       </div>
       <div className="radar-layout">
         <div className="radar-map">
-          <div className="radar-ring ring-1" /><div className="radar-ring ring-2" /><div className="radar-ring ring-3" /><div className="radar-sweep" />
-          <div className="radar-center"><MapPin size={18} /><b>Your area</b><small>Nearby</small></div>
+          <div className="radar-ring ring-1" />
+          <div className="radar-ring ring-2" />
+          <div className="radar-ring ring-3" />
+          <div className="radar-sweep" />
+          <div className="radar-center">
+            <MapPin size={18} />
+            <b>{t.yourArea}</b>
+            <small>{t.nearbyShort}</small>
+          </div>
           {providers.map((b, i) => {
             const angle = angleFor(i);
-            const coverage = Math.min(43, Math.max(18, Number(b.distance || 1) / (Number(b.max_service_radius || 10) || 10) * 43));
+            const coverage = Math.min(
+              43,
+              Math.max(18, (Number(b.distance || 1) / (Number(b.max_service_radius || 10) || 10)) * 43)
+            );
             return (
-              <button key={b.id} className="radar-dot-wrap" style={{ transform: `rotate(${angle}deg) translateY(-${coverage}%)` }} onClick={() => openBusiness(b)}>
+              <button
+                key={b.id}
+                className="radar-dot-wrap"
+                style={{ transform: `rotate(${angle}deg) translateY(-${coverage}%)` }}
+                onClick={() => openBusiness(b)}
+              >
                 <span className="radar-dot" />
-                <span className="radar-label" style={{ transform: `rotate(${-angle}deg)` }}>{b.category.replace('Home Services', '')}</span>
+                <span className="radar-label" style={{ transform: `rotate(${-angle}deg)` }}>
+                  {b.category.replace('Home Services', '')}
+                </span>
               </button>
             );
           })}
         </div>
         <div className="service-provider-list">
           {providers.map(b => (
-            <article className="service-provider" key={b.id} onClick={() => openBusiness(b)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBusiness(b); } }}>
+            <article
+              className="service-provider"
+              key={b.id}
+              onClick={() => openBusiness(b)}
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openBusiness(b);
+                }
+              }}
+            >
               <div className="service-provider-top">
                 <div className="biz-avatar">{b.name.slice(0, 1)}</div>
                 <div className="biz-main">
-                  <div className="biz-title"><h3>{b.name}</h3>{b.verified ? <ShieldCheck size={14} /> : null}</div>
-                  <p>{distText(b) ? `${distText(b)} away · ` : ''}up to {b.max_service_radius || '—'} km coverage</p>
+                  <div className="biz-title">
+                    <h3>{b.name}</h3>
+                    {b.verified ? <ShieldCheck size={14} /> : null}
+                  </div>
+                  <p>
+                    {distText(b) ? `${distText(b)} · ` : ''}
+                    {b.max_service_radius || '—'} km
+                  </p>
                 </div>
               </div>
               <div className="service-meta">
-                <span><MapPin size={13} />{b.service_area || 'Area not specified'}</span>
-                <span><Clock3 size={13} />{b.status_label}</span>
-                <span><Phone size={13} /><a href={`tel:${b.phone}`} onClick={e => e.stopPropagation()}>{b.phone}</a></span>
-                <strong>Visit ₹{Number(b.visit_charge || 0).toLocaleString('en-IN')}</strong>
+                <span>
+                  <MapPin size={13} />
+                  {b.service_area || t.areaNotSpecified}
+                </span>
+                <span>
+                  <Clock3 size={13} />
+                  {b.status_label}
+                </span>
+                <span>
+                  <Phone size={13} />
+                  <a href={`tel:${b.phone}`} onClick={e => e.stopPropagation()}>
+                    {b.phone}
+                  </a>
+                </span>
+                <strong>
+                  {t.visit} ₹{Number(b.visit_charge || 0).toLocaleString('en-IN')}
+                </strong>
               </div>
               <div className="service-tags">
-                <span>{b.is_open ? 'Available now' : 'Currently closed'}</span>
-                {b.emergency_service ? <span>Emergency</span> : null}
-                {b.appointment_required ? <span>Appointment</span> : null}
+                <span>{b.is_open ? t.availableNow : t.currentlyClosed}</span>
+                {b.emergency_service ? <span>{t.emergency}</span> : null}
+                {b.appointment_required ? <span>{t.appointment}</span> : null}
               </div>
-              <button type="button" className="details-btn" onClick={e => { e.stopPropagation(); openBusiness(b); }}>
-                View service details <ChevronRight size={15} />
+              <button
+                type="button"
+                className="details-btn"
+                onClick={e => {
+                  e.stopPropagation();
+                  openBusiness(b);
+                }}
+              >
+                {t.viewServiceDetails} <ChevronRight size={15} />
               </button>
             </article>
           ))}
@@ -412,14 +1049,25 @@ function HomeServiceRadar({ businesses, openBusiness }) {
 }
 
 function haversineKmClient(a, b) {
-  if (!a || !b || !Number.isFinite(Number(a.lat)) || !Number.isFinite(Number(a.lng)) || !Number.isFinite(Number(b.lat)) || !Number.isFinite(Number(b.lng))) return null;
-  const R = 6371, rad = Math.PI / 180;
-  const dLat = (Number(b.lat) - Number(a.lat)) * rad, dLng = (Number(b.lng) - Number(a.lng)) * rad;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(Number(a.lat) * rad) * Math.cos(Number(b.lat) * rad) * Math.sin(dLng / 2) ** 2;
+  if (
+    !a ||
+    !b ||
+    !Number.isFinite(Number(a.lat)) ||
+    !Number.isFinite(Number(a.lng)) ||
+    !Number.isFinite(Number(b.lat)) ||
+    !Number.isFinite(Number(b.lng))
+  )
+    return null;
+  const R = 6371,
+    rad = Math.PI / 180;
+  const dLat = (Number(b.lat) - Number(a.lat)) * rad,
+    dLng = (Number(b.lng) - Number(a.lng)) * rad;
+  const x =
+    Math.sin(dLat / 2) ** 2 + Math.cos(Number(a.lat) * rad) * Math.cos(Number(b.lat) * rad) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
+function ServiceCoverageMap({ business, customerLocation, onLocationChange, t }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const customerMarkerRef = useRef(null);
@@ -439,14 +1087,21 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
       setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable coverage map.');
       return;
     }
-    if (window.google?.maps) { setReady(true); return; }
+    if (window.google?.maps) {
+      setReady(true);
+      return;
+    }
     const existing = document.getElementById('google-maps-script');
     if (existing) {
       const onLoad = () => !cancelled && setReady(true);
       const onError = () => !cancelled && setMapError('Google Maps could not be loaded.');
       existing.addEventListener('load', onLoad);
       existing.addEventListener('error', onError);
-      return () => { cancelled = true; existing.removeEventListener('load', onLoad); existing.removeEventListener('error', onError); };
+      return () => {
+        cancelled = true;
+        existing.removeEventListener('load', onLoad);
+        existing.removeEventListener('error', onError);
+      };
     }
     const script = document.createElement('script');
     script.id = 'google-maps-script';
@@ -456,16 +1111,31 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
     script.onload = () => !cancelled && setReady(true);
     script.onerror = () => !cancelled && setMapError('Google Maps could not be loaded.');
     document.head.appendChild(script);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (!ready || !ref.current || !window.google?.maps || !Number.isFinite(provider.lat) || !Number.isFinite(provider.lng)) return;
+    if (!ready || !ref.current || !window.google?.maps || !Number.isFinite(provider.lat) || !Number.isFinite(provider.lng))
+      return;
     const center = Number.isFinite(customer.lat) && Number.isFinite(customer.lng) ? customer : provider;
     if (!mapRef.current) {
-      mapRef.current = new window.google.maps.Map(ref.current, { center, zoom: 12, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, gestureHandling: 'greedy' });
+      mapRef.current = new window.google.maps.Map(ref.current, {
+        center,
+        zoom: 12,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        gestureHandling: 'greedy'
+      });
       mapRef.current.addListener('click', e => {
-        if (e.latLng && onLocationChange) onLocationChange({ lat: Number(e.latLng.lat().toFixed(6)), lng: Number(e.latLng.lng().toFixed(6)), label: 'Pinned map location' });
+        if (e.latLng && onLocationChange)
+          onLocationChange({
+            lat: Number(e.latLng.lat().toFixed(6)),
+            lng: Number(e.latLng.lng().toFixed(6)),
+            label: t.pinnedLocation
+          });
       });
     } else mapRef.current.setCenter(center);
 
@@ -473,16 +1143,64 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
     if (businessMarkerRef.current) businessMarkerRef.current.setMap(null);
     if (circleRef.current) circleRef.current.setMap(null);
 
-    businessMarkerRef.current = new window.google.maps.Marker({ map: mapRef.current, position: provider, title: `${business.name}`, label: { text: 'E', color: '#fff', fontWeight: '800' }, icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#e65f20', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
-    customerMarkerRef.current = new window.google.maps.Marker({ map: mapRef.current, position: customer, title: 'Your location', label: { text: 'You', color: '#fff', fontWeight: '800' }, icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: inCoverage ? '#168b5b' : '#c43b35', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+    businessMarkerRef.current = new window.google.maps.Marker({
+      map: mapRef.current,
+      position: provider,
+      title: `${business.name}`,
+      label: { text: 'E', color: '#fff', fontWeight: '800' },
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#e65f20',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2
+      }
+    });
+    customerMarkerRef.current = new window.google.maps.Marker({
+      map: mapRef.current,
+      position: customer,
+      title: 'Your location',
+      label: { text: 'You', color: '#fff', fontWeight: '800' },
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: inCoverage ? '#168b5b' : '#c43b35',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2
+      }
+    });
     if (radius > 0) {
-      circleRef.current = new window.google.maps.Circle({ map: mapRef.current, center: provider, radius: radius * 1000, fillColor: '#e65f20', fillOpacity: .10, strokeColor: '#e65f20', strokeOpacity: .5, strokeWeight: 2, clickable: false });
+      circleRef.current = new window.google.maps.Circle({
+        map: mapRef.current,
+        center: provider,
+        radius: radius * 1000,
+        fillColor: '#e65f20',
+        fillOpacity: 0.1,
+        strokeColor: '#e65f20',
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        clickable: false
+      });
     }
     const bounds = new window.google.maps.LatLngBounds();
     bounds.extend(provider);
     if (Number.isFinite(customer.lat) && Number.isFinite(customer.lng)) bounds.extend(customer);
     mapRef.current.fitBounds(bounds, { top: 48, right: 48, bottom: 48, left: 48 });
-  }, [ready, business.id, business.name, business.latitude, business.longitude, business.max_service_radius, customerLocation?.lat, customerLocation?.lng, inCoverage, onLocationChange]);
+  }, [
+    ready,
+    business.id,
+    business.name,
+    business.latitude,
+    business.longitude,
+    business.max_service_radius,
+    customerLocation?.lat,
+    customerLocation?.lng,
+    inCoverage,
+    onLocationChange,
+    t
+  ]);
 
   if (!GOOGLE_MAPS_API_KEY) return null;
 
@@ -490,17 +1208,39 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
     <section className="service-coverage-map panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">SERVICE COVERAGE MAP</span>
+          <span className="eyebrow">{t.serviceCoverage}</span>
           <h2>{business.name} coverage area</h2>
         </div>
         <MapPin size={18} />
       </div>
-      {mapError ? <div className="error-banner">{mapError}</div> : <div ref={ref} className="google-map service-coverage-google-map" />}
-      <div className={distance == null ? 'coverage-result unknown' : inCoverage ? 'coverage-result inside' : 'coverage-result outside'}>
+      {mapError ? (
+        <div className="error-banner">{mapError}</div>
+      ) : (
+        <div ref={ref} className="google-map service-coverage-google-map" />
+      )}
+      <div
+        className={
+          distance == null
+            ? 'coverage-result unknown'
+            : inCoverage
+            ? 'coverage-result inside'
+            : 'coverage-result outside'
+        }
+      >
         <span className="coverage-dot" />
         <div>
-          <b>{distance == null ? 'Customer location not set' : inCoverage ? 'You are inside this service area' : 'You are outside this service area'}</b>
-          <small>{distance == null ? 'Set location above.' : `You are ${distance.toFixed(1)} km away · coverage is up to ${radius} km.`}</small>
+          <b>
+            {distance == null
+              ? t.customerLocationNotSet
+              : inCoverage
+              ? t.insideCoverage
+              : t.outsideCoverage}
+          </b>
+          <small>
+            {distance == null
+              ? t.chooseLocation
+              : `${distance.toFixed(1)} km · max ${radius} km`}
+          </small>
         </div>
       </div>
     </section>
@@ -510,33 +1250,58 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange }) {
 function BusinessCard({ b, openBusiness, t }) {
   const go = () => openBusiness(b);
   return (
-    <article className="business-card" onClick={go} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }} tabIndex={0} role="button">
+    <article
+      className="business-card"
+      onClick={go}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          go();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+    >
       <div className="card-top">
         <div className="biz-avatar">{b.name.slice(0, 1)}</div>
         <div className="biz-main">
-          <div className="biz-title"><h3>{b.name}</h3>{b.verified ? <ShieldCheck size={15} /> : null}</div>
+          <div className="biz-title">
+            <h3>{b.name}</h3>
+            {b.verified ? <ShieldCheck size={15} /> : null}
+          </div>
           <p>{b.category}{distText(b) ? ` · ${distText(b)}` : ''}</p>
         </div>
       </div>
       <div className="status-row">
-        <span className={b.is_open ? 'status open' : 'status closed'}>{b.is_open ? '● ' + t.open : '● ' + t.closed}</span>
+        <span className={b.is_open ? 'status open' : 'status closed'}>
+          {b.is_open ? '● ' + t.open : '● ' + t.closed}
+        </span>
         <span>{b.status_label}</span>
       </div>
       <div className="mini-items">
         {b.items?.slice(0, 2).map(i => (
           <div key={i.id}>
             <span>{i.name}</span>
-            <b>{priceText(i)}</b>
-            <small className="market-price-range">{marketPriceText(i)}</small>
-            <em className={`stock ${i.status.toLowerCase()}`}>
-              {!i.availability_verified ? 'Unverified' : i.quantity > 0 && i.quantity < 5 ? `Only ${i.quantity} left` : i.status === 'IN_STOCK' ? 'In stock' : i.status === 'MEDIUM_STOCK' ? 'Medium stock' : i.status === 'LOW_STOCK' ? 'Low stock' : 'Out of stock'}
-            </em>
+            <b>{priceText(i, t)}</b>
+            <small className="market-price-range">{marketPriceText(i, t)}</small>
+            <em className={`stock ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</em>
           </div>
         ))}
       </div>
       <div className="card-foot">
-        <span><Package size={14} /> {b.items?.length || 0} listed</span>
-        <button type="button" className="details-btn" onClick={e => { e.stopPropagation(); go(); }}>View details <ChevronRight size={15} /></button>
+        <span>
+          <Package size={14} /> {b.items?.length || 0} {t.listed}
+        </span>
+        <button
+          type="button"
+          className="details-btn"
+          onClick={e => {
+            e.stopPropagation();
+            go();
+          }}
+        >
+          {t.viewDetails} <ChevronRight size={15} />
+        </button>
       </div>
     </article>
   );
@@ -545,53 +1310,113 @@ function BusinessCard({ b, openBusiness, t }) {
 function Business({ business, onBack, t, customerLocation, setCustomerLocation }) {
   return (
     <div className="stack">
-      <button className="back" onClick={onBack}><ArrowLeft size={17} /> Back to discovery</button>
+      <button className="back" onClick={onBack}>
+        <ArrowLeft size={17} /> {t.backToDiscovery}
+      </button>
       <section className="profile-hero">
         <div className="profile-avatar">{business.name.slice(0, 1)}</div>
         <div className="profile-copy">
-          <div className="biz-title"><h1>{business.name}</h1>{business.verified ? <ShieldCheck size={18} /> : null}</div>
-          <p>{business.category}{distText(business) ? ` · ${distText(business)} away` : ''}</p>
+          <div className="biz-title">
+            <h1>{business.name}</h1>
+            {business.verified ? <ShieldCheck size={18} /> : null}
+          </div>
+          <p>{business.category}{distText(business) ? ` · ${distText(business)}` : ''}</p>
           <div className={business.is_open ? 'status open' : 'status closed'}>{business.status_label}</div>
         </div>
       </section>
       <div className="info-grid">
-        <div><MapPin size={17} /><span>{business.address}</span></div>
-        <div><Phone size={17} /><a href={`tel:${business.phone}`}>{business.phone}</a></div>
-        <div><Package size={17} /><span>{business.items?.length || 0} listed items</span></div>
-        <div><Clock3 size={17} /><span>{business.is_open ? `Closes ${business.closes_at}` : business.next_open ? `Opens ${business.next_open}` : 'Closed today'}</span></div>
+        <div>
+          <MapPin size={17} />
+          <span>{business.address}</span>
+        </div>
+        <div>
+          <Phone size={17} />
+          <a href={`tel:${business.phone}`}>{business.phone}</a>
+        </div>
+        <div>
+          <Package size={17} />
+          <span>
+            {business.items?.length || 0} {t.listedItems}
+          </span>
+        </div>
+        <div>
+          <Clock3 size={17} />
+          <span>
+            {business.is_open
+              ? `${t.closesAt} ${business.closes_at}`
+              : business.next_open
+              ? `${t.opensAt} ${business.next_open}`
+              : t.closedToday}
+          </span>
+        </div>
       </div>
       {business.home_visit ? (
         <>
-          <ServiceCoverageMap business={business} customerLocation={customerLocation} onLocationChange={setCustomerLocation} />
+          <ServiceCoverageMap
+            business={business}
+            customerLocation={customerLocation}
+            onLocationChange={setCustomerLocation}
+            t={t}
+          />
           <section className="service-detail-panel panel">
-            <div className="section-head"><div><span className="eyebrow">HOME SERVICE</span><h2>Service coverage</h2></div><MapPin size={18} /></div>
-            <div className="service-detail-grid">
-              <div><small>Service area</small><b>{business.service_area || 'Area not specified'}</b></div>
-              <div><small>Maximum radius</small><b>{business.max_service_radius || '—'} km</b></div>
-              <div><small>Visit charge</small><b>₹{Number(business.visit_charge || 0).toLocaleString('en-IN')}</b></div>
-              <div><small>Availability</small><b>{business.status_label}</b></div>
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">{t.servicesCategory.toUpperCase()}</span>
+                <h2>{t.serviceCoverage}</h2>
+              </div>
+              <MapPin size={18} />
             </div>
-            <a className="primary call" href={`tel:${business.phone}`}><Phone size={16} /> Contact {business.phone}</a>
+            <div className="service-detail-grid">
+              <div>
+                <small>{t.serviceArea}</small>
+                <b>{business.service_area || t.areaNotSpecified}</b>
+              </div>
+              <div>
+                <small>{t.maxRadius}</small>
+                <b>{business.max_service_radius || '—'} km</b>
+              </div>
+              <div>
+                <small>{t.visitCharge}</small>
+                <b>₹{Number(business.visit_charge || 0).toLocaleString('en-IN')}</b>
+              </div>
+              <div>
+                <small>{t.availability}</small>
+                <b>{business.status_label}</b>
+              </div>
+            </div>
+            <a className="primary call" href={`tel:${business.phone}`}>
+              <Phone size={16} /> {t.contact} {business.phone}
+            </a>
           </section>
         </>
       ) : null}
-      {business.photos?.length ? <PhotoGallery photos={business.photos} name={business.name} /> : null}
-      {business.description && <section className="panel"><h2>About</h2><p>{business.description}</p></section>}
+      {business.photos?.length ? <PhotoGallery photos={business.photos} name={business.name} t={t} /> : null}
+      {business.description && (
+        <section className="panel">
+          <h2>{t.about}</h2>
+          <p>{business.description}</p>
+        </section>
+      )}
       <section className="panel">
-        <div className="section-head"><h2>{t.catalog}</h2></div>
+        <div className="section-head">
+          <h2>{t.catalog}</h2>
+        </div>
         <div className="catalog">
           {business.items?.map(i => (
             <div className="catalog-row" key={i.id}>
               <div>
                 <b>{i.name}</b>
-                <small>{i.type === 'SERVICE' ? 'Service' : 'Product'} · {i.availability_verified ? 'Updated ' + relative(i.updated_at) : 'Availability may be outdated'}</small>
+                <small>
+                  {i.type === 'SERVICE' ? 'Service' : 'Product'} ·{' '}
+                  {i.availability_verified ? 'Updated ' + relative(i.updated_at) : t.availabilityUnverified}
+                </small>
                 {i.description && <p>{i.description}</p>}
               </div>
               <div className="catalog-right">
                 <div className="catalog-price-wrap">
-                  <strong>{priceText(i)}</strong>
-                  <small className="market-price-range">{marketPriceText(i)}</small>
-                  <span className={`stock ${i.status.toLowerCase()}`}>{!i.availability_verified ? 'Availability unverified' : i.quantity > 0 && i.quantity < 5 ? `Only ${i.quantity} left` : i.status === 'IN_STOCK' ? 'In stock' : i.status === 'MEDIUM_STOCK' ? 'Medium stock' : i.status === 'LOW_STOCK' ? 'Low stock' : 'Out of stock'}</span>
+                  <strong>{priceText(i, t)}</strong>
+                  <small className="market-price-range">{marketPriceText(i, t)}</small>
+                  <span className={`stock ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</span>
                 </div>
               </div>
             </div>
@@ -599,47 +1424,79 @@ function Business({ business, onBack, t, customerLocation, setCustomerLocation }
         </div>
       </section>
       <section className="panel">
-        <div className="section-head"><h2>{t.hours}</h2><Clock3 size={18} /></div>
+        <div className="section-head">
+          <h2>{t.hours}</h2>
+          <Clock3 size={18} />
+        </div>
         <div className="hours-list">
-          {business.hours?.map(h => <div key={h.day}><span>{h.day}</span><b>{h.is_closed ? 'Closed' : `${formatTime(h.open_time)} – ${formatTime(h.close_time)}`}</b></div>)}
+          {business.hours?.map(h => (
+            <div key={h.day}>
+              <span>{h.day}</span>
+              <b>{h.is_closed ? t.closed : `${formatTime(h.open_time)} – ${formatTime(h.close_time)}`}</b>
+            </div>
+          ))}
         </div>
       </section>
-      <a className="primary call" href={`tel:${business.phone}`}><Phone size={17} /> Call business</a>
+      <a className="primary call" href={`tel:${business.phone}`}>
+        <Phone size={17} /> {t.callBusiness}
+      </a>
     </div>
   );
 }
 
-function ProductSearchListings({ query, businesses, openBusiness }) {
+function ProductSearchListings({ query, businesses, openBusiness, t }) {
   const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const listings = businesses.flatMap(b => (b.items || []).filter(i => {
-    const hay = `${i.name} ${i.description || ''}`.toLowerCase();
-    return words.every(w => hay.includes(w)) || hay.includes(query.toLowerCase());
-  }).map(i => ({ item: i, business: b })));
+  const listings = businesses.flatMap(b =>
+    (b.items || [])
+      .filter(i => {
+        const hay = `${i.name} ${i.description || ''}`.toLowerCase();
+        return words.every(w => hay.includes(w)) || hay.includes(query.toLowerCase());
+      })
+      .map(i => ({ item: i, business: b }))
+  );
 
   return (
     <section className="panel product-search-results">
       <div className="section-head">
-        <div><h2>Items matching “{query}”</h2><small>Compare listed prices and shops before visiting</small></div>
+        <div>
+          <h2>{t.itemsMatching.replace('{query}', query)}</h2>
+          <small>{t.comparePricesBeforeVisit}</small>
+        </div>
         <Package size={18} />
       </div>
       {listings.length ? (
         listings.map(({ item, business }) => (
-          <button className="product-listing" key={`${business.id}-${item.id}`} onClick={() => openBusiness(business)}>
-            <span className="product-listing-icon"><Package size={18} /></span>
+          <button
+            className="product-listing"
+            key={`${business.id}-${item.id}`}
+            onClick={() => openBusiness(business)}
+          >
+            <span className="product-listing-icon">
+              <Package size={18} />
+            </span>
             <span className="product-listing-copy">
               <b>{item.name}</b>
-              <small>{business.name} · {business.address}</small>
-              <em>{business.is_open ? 'Open now' : 'Currently closed'} · {item.status === 'OUT_OF_STOCK' ? 'Out of stock' : item.quantity > 0 && item.quantity < 5 ? `Only ${item.quantity} left` : 'Check availability with shop'}</em>
+              <small>
+                {business.name} · {business.address}
+              </small>
+              <em>
+                {business.is_open ? t.open : t.closed} ·{' '}
+                {item.status === 'OUT_OF_STOCK'
+                  ? t.outOfStock
+                  : item.quantity > 0 && item.quantity < 5
+                  ? t.onlyLeft.replace('{n}', item.quantity)
+                  : t.checkWithShop}
+              </em>
             </span>
             <span className="product-listing-price">
-              <strong>{priceText(item)}</strong>
-              <small className="market-price-range">{marketPriceText(item)}</small>
+              <strong>{priceText(item, t)}</strong>
+              <small className="market-price-range">{marketPriceText(item, t)}</small>
             </span>
             <ChevronRight size={16} />
           </button>
         ))
       ) : (
-        <p className="muted">No exact item listing found for this search.</p>
+        <p className="muted">{t.noItemsFound}</p>
       )}
     </section>
   );
@@ -675,7 +1532,7 @@ function BusinessDashboard({ api, t, logout }) {
     })();
   }, []);
 
-  if (!biz) return <Loading />;
+  if (!biz) return <Loading text={t.loadingInfo} />;
 
   async function saveBiz() {
     await api(`/business/${biz.id}`, { method: 'PATCH', body: JSON.stringify(form) });
@@ -691,7 +1548,10 @@ function BusinessDashboard({ api, t, logout }) {
   }
 
   async function saveSpecialHours() {
-    await api(`/business/${biz.id}/special-hours/today`, { method: 'PUT', body: JSON.stringify({ is_closed: closedToday, note: specialNote }) });
+    await api(`/business/${biz.id}/special-hours/today`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_closed: closedToday, note: specialNote })
+    });
     setBiz(await api('/business/me'));
     setMsg(closedToday ? 'Your shop is marked closed for today only.' : 'Normal hours resume.');
   }
@@ -710,36 +1570,77 @@ function BusinessDashboard({ api, t, logout }) {
         <div>
           <span className="eyebrow">SHOP OWNER</span>
           <h1>{biz.name}</h1>
-          <p>{biz.profile_completeness}% profile complete</p>
+          <p>
+            {biz.profile_completeness}
+            {t.profileComplete}
+          </p>
         </div>
-        <button className="danger-outline" onClick={logout}><LogOut size={16} />Logout</button>
+        <button className="danger-outline" onClick={logout}>
+          <LogOut size={16} />
+          {t.logout}
+        </button>
       </div>
       <div className="tabs">
-        {[['overview', 'Overview'], ['inventory', 'Inventory'], ['hours', 'Hours'], ['demand', 'Demand tips']].map(x => <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>{x[1]}</button>)}
+        {[
+          ['overview', t.overview],
+          ['inventory', t.inventory],
+          ['hours', t.hours],
+          ['demand', t.demandTips]
+        ].map(x => (
+          <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>
+            {x[1]}
+          </button>
+        ))}
       </div>
       {msg && <div className="notice">{msg}</div>}
 
       {tab === 'overview' && (
         <>
           <div className="metric-grid">
-            <Metric label="Listing" value={biz.verification_status === 'PENDING' ? 'Pending' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'} />
-            <Metric label="Items" value={biz.items.length} />
-            <Metric label="Status" value={biz.is_open ? 'Open' : 'Closed'} />
+            <Metric
+              label="Listing"
+              value={biz.verification_status === 'PENDING' ? 'Pending' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'}
+            />
+            <Metric label={t.itemsCount} value={biz.items.length} />
+            <Metric label="Status" value={biz.is_open ? t.open : t.closed} />
           </div>
           <section className="panel">
-            <div className="section-head"><h2>Business profile</h2><button className="icon-btn" onClick={() => setEditing(!editing)}><Edit3 size={16} /></button></div>
+            <div className="section-head">
+              <h2>Business profile</h2>
+              <button className="icon-btn" onClick={() => setEditing(!editing)}>
+                <Edit3 size={16} />
+              </button>
+            </div>
             {editing ? (
               <div className="form-grid">
-                {['name','category','phone','address','description','service_area','max_service_radius','visit_charge','latitude','longitude'].map(k => (
+                {[
+                  'name',
+                  'category',
+                  'phone',
+                  'address',
+                  'description',
+                  'service_area',
+                  'max_service_radius',
+                  'visit_charge',
+                  'latitude',
+                  'longitude'
+                ].map(k => (
                   <label key={k}>
                     {k.replace('_', ' ')}
-                    <input type={['max_service_radius', 'visit_charge'].includes(k) ? 'number' : 'text'} value={form[k] ?? ''} onChange={e => setForm({ ...form, [k]: e.target.value })} />
+                    <input
+                      type={['max_service_radius', 'visit_charge'].includes(k) ? 'number' : 'text'}
+                      value={form[k] ?? ''}
+                      onChange={e => setForm({ ...form, [k]: e.target.value })}
+                    />
                   </label>
                 ))}
-                <button className="primary" onClick={saveBiz}><Save size={16} />Save changes</button>
+                <button className="primary" onClick={saveBiz}>
+                  <Save size={16} />
+                  {t.saveChanges}
+                </button>
               </div>
             ) : (
-              <p>{biz.description || 'Add a description to improve your listing.'}</p>
+              <p>{biz.description || t.addDescription}</p>
             )}
           </section>
         </>
@@ -748,21 +1649,37 @@ function BusinessDashboard({ api, t, logout }) {
       {tab === 'inventory' && (
         <section className="panel">
           <div className="section-head">
-            <div><h2>Inventory</h2><small>Enter the exact quantity.</small></div>
-            <AddItem api={api} businessId={biz.id} refresh={async () => setBiz(await api('/business/me'))} />
+            <div>
+              <h2>{t.inventory}</h2>
+              <small>{t.enterExactQty}</small>
+            </div>
+            <AddItem api={api} businessId={biz.id} refresh={async () => setBiz(await api('/business/me'))} t={t} />
           </div>
           {biz.items.map(i => (
             <div className="inventory-row" key={i.id}>
               <div>
                 <b>{i.name}</b>
-                <small>{priceText(i)} · Updated {relative(i.updated_at)}</small>
+                <small>
+                  {priceText(i, t)} · Updated {relative(i.updated_at)}
+                </small>
               </div>
               <div className="inventory-controls">
                 <label>
-                  <span>Items</span>
-                  <input type="number" min="0" value={i.quantity ?? 0} onChange={e => setBiz({ ...biz, items: biz.items.map(x => x.id === i.id ? { ...x, quantity: e.target.value } : x) })} onBlur={e => saveQuantity(i, e.target.value)} />
+                  <span>{t.itemsCount}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={i.quantity ?? 0}
+                    onChange={e =>
+                      setBiz({
+                        ...biz,
+                        items: biz.items.map(x => (x.id === i.id ? { ...x, quantity: e.target.value } : x))
+                      })
+                    }
+                    onBlur={e => saveQuantity(i, e.target.value)}
+                  />
                 </label>
-                <span className={`stock-button ${i.status.toLowerCase()}`}>{i.status}</span>
+                <span className={`stock-button ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</span>
               </div>
             </div>
           ))}
@@ -772,27 +1689,61 @@ function BusinessDashboard({ api, t, logout }) {
       {tab === 'hours' && (
         <>
           <section className="panel special-hours-panel">
-            <div className="section-head"><div><h2>One-time change for today</h2></div><CalendarClock size={20} /></div>
+            <div className="section-head">
+              <div>
+                <h2>{t.oneTimeChange}</h2>
+              </div>
+              <CalendarClock size={20} />
+            </div>
             <label className="check-field closed-today-toggle">
               <input type="checkbox" checked={closedToday} onChange={e => setClosedToday(e.target.checked)} />
-              <span><b>Closed today</b></span>
+              <span>
+                <b>{t.closedToday}</b>
+              </span>
             </label>
-            <button className="primary" onClick={saveSpecialHours}><Save size={16} />Save</button>
+            <button className="primary" onClick={saveSpecialHours}>
+              <Save size={16} />
+              {t.save}
+            </button>
           </section>
           <section className="panel">
-            <div className="section-head"><h2>Weekly hours</h2><button className="primary small" onClick={saveHours}><Save size={15} />Save</button></div>
+            <div className="section-head">
+              <h2>{t.weeklyHours}</h2>
+              <button className="primary small" onClick={saveHours}>
+                <Save size={15} />
+                {t.save}
+              </button>
+            </div>
             {hours.map((h, idx) => (
               <div className="hour-editor" key={h.day}>
                 <b>{h.day}</b>
                 <label className="switch">
-                  <input type="checkbox" checked={!h.is_closed} onChange={e => setHours(hours.map((x, i) => i === idx ? { ...x, is_closed: !e.target.checked } : x))} />
+                  <input
+                    type="checkbox"
+                    checked={!h.is_closed}
+                    onChange={e =>
+                      setHours(hours.map((x, i) => (i === idx ? { ...x, is_closed: !e.target.checked } : x)))
+                    }
+                  />
                   <span />
                 </label>
                 {!h.is_closed && (
                   <>
-                    <input type="time" value={h.open_time || ''} onChange={e => setHours(hours.map((x, i) => i === idx ? { ...x, open_time: e.target.value } : x))} />
+                    <input
+                      type="time"
+                      value={h.open_time || ''}
+                      onChange={e =>
+                        setHours(hours.map((x, i) => (i === idx ? { ...x, open_time: e.target.value } : x)))
+                      }
+                    />
                     <span>to</span>
-                    <input type="time" value={h.close_time || ''} onChange={e => setHours(hours.map((x, i) => i === idx ? { ...x, close_time: e.target.value } : x))} />
+                    <input
+                      type="time"
+                      value={h.close_time || ''}
+                      onChange={e =>
+                        setHours(hours.map((x, i) => (i === idx ? { ...x, close_time: e.target.value } : x)))
+                      }
+                    />
                   </>
                 )}
               </div>
@@ -803,20 +1754,32 @@ function BusinessDashboard({ api, t, logout }) {
 
       {tab === 'demand' && (
         <section className="panel">
-          <div className="section-head"><div><h2>Demand tips</h2></div><BarChart3 /></div>
-          {demand?.length ? demand.map(x => (
-            <div className="demand-row" key={x.id}>
-              <div><b>{x.item}</b><small>{x.action}</small></div>
-              <strong>{x.increase}</strong>
+          <div className="section-head">
+            <div>
+              <h2>{t.demandTips}</h2>
             </div>
-          )) : <Empty text="No tips right now." />}
+            <BarChart3 />
+          </div>
+          {demand?.length ? (
+            demand.map(x => (
+              <div className="demand-row" key={x.id}>
+                <div>
+                  <b>{x.item}</b>
+                  <small>{x.action}</small>
+                </div>
+                <strong>{x.increase}</strong>
+              </div>
+            ))
+          ) : (
+            <Empty text={t.noTips} />
+          )}
         </section>
       )}
     </div>
   );
 }
 
-function AdminDashboard({ api, logout }) {
+function AdminDashboard({ api, logout, t }) {
   const [data, setData] = useState(null);
   const [shops, setShops] = useState([]);
   const [tab, setTab] = useState('registrations');
@@ -831,7 +1794,9 @@ function AdminDashboard({ api, logout }) {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   async function setStatus(id, status) {
     try {
@@ -842,17 +1807,20 @@ function AdminDashboard({ api, logout }) {
     }
   }
 
-  if (!data) return msg ? <div className="error-banner">{msg}</div> : <Loading />;
+  if (!data) return msg ? <div className="error-banner">{msg}</div> : <Loading text={t.loadingInfo} />;
 
   return (
     <div className="stack">
-      <PageTitle title="Admin" icon={<ShieldCheck />} />
+      <PageTitle title={t.admin} icon={<ShieldCheck />} />
       <div className="dashboard-head">
         <div>
           <span className="eyebrow">JAMGHAT ADMIN</span>
           <h1>Registrations & photos</h1>
         </div>
-        <button className="danger-outline" onClick={logout}><LogOut size={16} />Logout</button>
+        <button className="danger-outline" onClick={logout}>
+          <LogOut size={16} />
+          {t.logout}
+        </button>
       </div>
       <div className="metric-grid">
         <Metric label="Live shops" value={data.liveBusinesses} />
@@ -861,28 +1829,52 @@ function AdminDashboard({ api, logout }) {
       </div>
       {msg && <div className="notice">{msg}</div>}
       <div className="tabs">
-        {[['registrations', 'Business listings'], ['photos', 'Shop photos']].map(x => <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>{x[1]}</button>)}
+        {[
+          ['registrations', 'Business listings'],
+          ['photos', t.shopPhotos]
+        ].map(x => (
+          <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>
+            {x[1]}
+          </button>
+        ))}
       </div>
       {tab === 'registrations' && (
         <section className="panel">
           <h2>Shops</h2>
-          {shops.length ? shops.map(s => (
-            <div className="admin-row" key={s.id}>
-              <div><b>{s.name}</b><small>{s.category} · {s.phone || 'no phone'}</small></div>
-              <div className="inline-form">
-                {s.verification_status !== 'VERIFIED' && <button className="primary small" onClick={() => setStatus(s.id, 'VERIFIED')}>Approve</button>}
-                {s.verification_status === 'PENDING' && <button className="secondary small" onClick={() => setStatus(s.id, 'REJECTED')}>Reject</button>}
+          {shops.length ? (
+            shops.map(s => (
+              <div className="admin-row" key={s.id}>
+                <div>
+                  <b>{s.name}</b>
+                  <small>
+                    {s.category} · {s.phone || 'no phone'}
+                  </small>
+                </div>
+                <div className="inline-form">
+                  {s.verification_status !== 'VERIFIED' && (
+                    <button className="primary small" onClick={() => setStatus(s.id, 'VERIFIED')}>
+                      Approve
+                    </button>
+                  )}
+                  {s.verification_status === 'PENDING' && (
+                    <button className="secondary small" onClick={() => setStatus(s.id, 'REJECTED')}>
+                      Reject
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )) : <Empty text="No shops yet." />}
+            ))
+          ) : (
+            <Empty text="No shops yet." />
+          )}
         </section>
       )}
-      {tab === 'photos' && <AdminPhotos api={api} shops={shops} />}
+      {tab === 'photos' && <AdminPhotos api={api} shops={shops} t={t} />}
     </div>
   );
 }
 
-function AdminPhotos({ api, shops }) {
+function AdminPhotos({ api, shops, t }) {
   const [shopId, setShopId] = useState('');
   const [photos, setPhotos] = useState([]);
   const [preview, setPreview] = useState('');
@@ -891,13 +1883,22 @@ function AdminPhotos({ api, shops }) {
   const [msg, setMsg] = useState('');
   const inputRef = useRef(null);
 
-  async function loadPhotos(id) { setPhotos(id ? await api(`/businesses/${id}/photos`) : []); }
-  useEffect(() => { loadPhotos(shopId).catch(e => setMsg(e.message)); }, [shopId]);
+  async function loadPhotos(id) {
+    setPhotos(id ? await api(`/businesses/${id}/photos`) : []);
+  }
+
+  useEffect(() => {
+    loadPhotos(shopId).catch(e => setMsg(e.message));
+  }, [shopId]);
 
   async function choose(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    try { setPreview(await compressImage(f)); } catch { setMsg('Could not read this image.'); }
+    try {
+      setPreview(await compressImage(f));
+    } catch {
+      setMsg('Could not read this image.');
+    }
   }
 
   async function upload() {
@@ -930,51 +1931,99 @@ function AdminPhotos({ api, shops }) {
 
   return (
     <section className="panel photo-panel">
-      <div className="section-head"><div><h2><Camera size={18} /> Shop photos</h2></div></div>
+      <div className="section-head">
+        <div>
+          <h2>
+            <Camera size={18} /> {t.shopPhotos}
+          </h2>
+        </div>
+      </div>
       <label className="special-note-label">
         Shop
-        <select value={shopId} onChange={e => { setShopId(e.target.value); setMsg(''); }}>
+        <select
+          value={shopId}
+          onChange={e => {
+            setShopId(e.target.value);
+            setMsg('');
+          }}
+        >
           <option value="">Choose a shop…</option>
-          {shops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {shops.map(s => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
         </select>
       </label>
       {msg && <div className="notice">{msg}</div>}
       {shopId && (
         <div className="photo-uploader">
-          <input ref={inputRef} className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={choose} />
+          <input
+            ref={inputRef}
+            className="photo-file-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={choose}
+          />
           <div className="inline-form photo-actions">
-            <button type="button" className="secondary small" onClick={() => inputRef.current?.click()}><Camera size={15} />Choose photo</button>
-            <button type="button" className="primary small" disabled={!preview || busy} onClick={upload}>{busy ? 'Uploading…' : 'Upload photo'}</button>
+            <button type="button" className="secondary small" onClick={() => inputRef.current?.click()}>
+              <Camera size={15} />
+              Choose photo
+            </button>
+            <button type="button" className="primary small" disabled={!preview || busy} onClick={upload}>
+              {busy ? 'Uploading…' : 'Upload photo'}
+            </button>
           </div>
-          <input className="caption-input" placeholder="Caption (optional)" value={caption} onChange={e => setCaption(e.target.value)} maxLength={180} />
+          <input
+            className="caption-input"
+            placeholder="Caption (optional)"
+            value={caption}
+            onChange={e => setCaption(e.target.value)}
+            maxLength={180}
+          />
         </div>
       )}
-      {shopId && (photos.length ? (
-        <div className="photo-grid">
-          {photos.map(p => (
-            <figure className="shop-photo" key={p.id}>
-              <img src={p.image_url} alt={p.caption || 'Shop photo'} />
-              <figcaption>
-                {p.caption && <p>{p.caption}</p>}
-                <button className="photo-remove" onClick={() => remove(p.id)}><X size={14} /></button>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      ) : <Empty text="No photos yet." />)}
+      {shopId &&
+        (photos.length ? (
+          <div className="photo-grid">
+            {photos.map(p => (
+              <figure className="shop-photo" key={p.id}>
+                <img src={p.image_url} alt={p.caption || 'Shop photo'} />
+                <figcaption>
+                  {p.caption && <p>{p.caption}</p>}
+                  <button className="photo-remove" onClick={() => remove(p.id)}>
+                    <X size={14} />
+                  </button>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : (
+          <Empty text={t.noPhotosYet} />
+        ))}
     </section>
   );
 }
 
-function PhotoGallery({ photos, name }) {
+function PhotoGallery({ photos, name, t }) {
   return (
     <section className="panel photo-panel">
-      <div className="section-head"><div><h2><Camera size={18} /> Shop photos</h2></div></div>
+      <div className="section-head">
+        <div>
+          <h2>
+            <Camera size={18} /> {t.shopPhotos}
+          </h2>
+        </div>
+      </div>
       <div className="photo-grid">
         {photos.map(p => (
           <figure className="shop-photo" key={p.id}>
             <img loading="lazy" src={p.image_url} alt={p.caption || `Photo of ${name}`} />
-            {p.caption && <figcaption><p>{p.caption}</p></figcaption>}
+            {p.caption && (
+              <figcaption>
+                <p>{p.caption}</p>
+              </figcaption>
+            )}
           </figure>
         ))}
       </div>
@@ -997,7 +2046,7 @@ function compressImage(file) {
         c.height = Math.max(1, Math.round(img.height * scale));
         const ctx = c.getContext('2d');
         ctx.drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL('image/jpeg', .78));
+        resolve(c.toDataURL('image/jpeg', 0.78));
       };
       img.src = reader.result;
     };
@@ -1005,51 +2054,102 @@ function compressImage(file) {
   });
 }
 
-function AddItem({ api, businessId, refresh }) {
+function AddItem({ api, businessId, refresh, t }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState('PRODUCT');
 
-  if (!open) return <button className="primary small" onClick={() => setOpen(true)}><Plus size={15} />Add item</button>;
+  if (!open)
+    return (
+      <button className="primary small" onClick={() => setOpen(true)}>
+        <Plus size={15} />
+        {t.addItem}
+      </button>
+    );
 
   return (
     <div className="inline-form">
       <input placeholder="Item/service" value={name} onChange={e => setName(e.target.value)} />
       <input placeholder="₹ price" type="number" value={price} onChange={e => setPrice(e.target.value)} />
-      <input placeholder="Items in stock" type="number" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
+      <input
+        placeholder="Items in stock"
+        type="number"
+        min="0"
+        value={quantity}
+        onChange={e => setQuantity(e.target.value)}
+      />
       <select value={type} onChange={e => setType(e.target.value)}>
         <option>PRODUCT</option>
         <option>SERVICE</option>
       </select>
-      <button className="primary small" onClick={async () => {
-        await api('/items', { method: 'POST', body: JSON.stringify({ business_id: businessId, name, price: Number(price), quantity: Number(quantity) || 0, type }) });
-        setOpen(false);
-        setName('');
-        setPrice('');
-        setQuantity('');
-        refresh();
-      }}>Save</button>
-      <button className="icon-btn" onClick={() => setOpen(false)}><X size={16} /></button>
+      <button
+        className="primary small"
+        onClick={async () => {
+          await api('/items', {
+            method: 'POST',
+            body: JSON.stringify({
+              business_id: businessId,
+              name,
+              price: Number(price),
+              quantity: Number(quantity) || 0,
+              type
+            })
+          });
+          setOpen(false);
+          setName('');
+          setPrice('');
+          setQuantity('');
+          refresh();
+        }}
+      >
+        {t.save}
+      </button>
+      <button className="icon-btn" onClick={() => setOpen(false)}>
+        <X size={16} />
+      </button>
     </div>
   );
 }
 
-function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onResend }) {
+function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onResend, t }) {
   const [mode, setMode] = useState(initialMode);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
-  const [f, setF] = useState({ email: '', password: '', owner_name: '', business_name: '', category: 'Grocery', phone: '', address: '', description: '', latitude: '', longitude: '' });
+  const [f, setF] = useState({
+    email: '',
+    password: '',
+    owner_name: '',
+    business_name: '',
+    category: 'Grocery',
+    phone: '',
+    address: '',
+    description: '',
+    latitude: '',
+    longitude: ''
+  });
 
   const set = k => e => setF({ ...f, [k]: e.target.value });
 
   function locate() {
     setErr('');
-    if (!navigator.geolocation) { setErr('Location not supported.'); return; }
-    navigator.geolocation.getCurrentPosition(p => setF(x => ({ ...x, latitude: Number(p.coords.latitude.toFixed(6)), longitude: Number(p.coords.longitude.toFixed(6)) })), () => setErr('Could not get your location.'), { enableHighAccuracy: true, timeout: 10000 });
+    if (!navigator.geolocation) {
+      setErr('Location not supported.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      p =>
+        setF(x => ({
+          ...x,
+          latitude: Number(p.coords.latitude.toFixed(6)),
+          longitude: Number(p.coords.longitude.toFixed(6))
+        })),
+      () => setErr('Could not get your location.'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 
   async function submit(e) {
@@ -1086,9 +2186,11 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
   return (
     <div className="modal-backdrop">
       <form className="auth-modal" onSubmit={submit}>
-        <button type="button" className="modal-close" onClick={onClose}><X /></button>
+        <button type="button" className="modal-close" onClick={onClose}>
+          <X />
+        </button>
         <span className="eyebrow">JAMGHAT</span>
-        <h2>{mode === 'login' ? 'Business login' : 'List your shop'}</h2>
+        <h2>{mode === 'login' ? t.login : t.register}</h2>
         <p>{mode === 'login' ? 'Sign in to update your shop.' : 'Free for shopkeepers.'}</p>
         {err && <div className="error-banner">{err}</div>}
         {resendMessage && <div className="notice">{resendMessage}</div>}
@@ -1096,30 +2198,93 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
           <>
             <input placeholder="Your name" value={f.owner_name} onChange={set('owner_name')} required />
             <input placeholder="Shop name" value={f.business_name} onChange={set('business_name')} required />
-            <select value={f.category} onChange={set('category')}>{registerCategories.map(c => <option key={c}>{c}</option>)}</select>
+            <select value={f.category} onChange={set('category')}>
+              {registerCategories.map(c => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
             <input type="tel" placeholder="Shop phone number" value={f.phone} onChange={set('phone')} required />
             <input placeholder="Shop address / area" value={f.address} onChange={set('address')} required />
-            <textarea placeholder="Description (optional)" value={f.description} onChange={set('description')} maxLength={400} />
-            <button type="button" className="secondary small" onClick={locate}><LocateFixed size={15} /> {f.latitude !== '' ? `Location saved (${f.latitude}, ${f.longitude})` : 'Use current location'}</button>
+            <textarea
+              placeholder="Description (optional)"
+              value={f.description}
+              onChange={set('description')}
+              maxLength={400}
+            />
+            <button type="button" className="secondary small" onClick={locate}>
+              <LocateFixed size={15} />{' '}
+              {f.latitude !== '' ? `Location saved (${f.latitude}, ${f.longitude})` : t.useMyLocation}
+            </button>
           </>
         )}
         <input type="email" placeholder="Email" value={f.email} onChange={set('email')} required />
-        <input type="password" placeholder="Password" value={f.password} onChange={set('password')} minLength={mode === 'register' ? 8 : undefined} required />
-        <button className="primary full" disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Register my shop'}</button>
-        {mode === 'login' && needsVerification && <button type="button" className="link-btn" disabled={busy || !f.email} onClick={resend}>Resend verification email</button>}
-        <button type="button" className="link-btn" onClick={() => { setErr(''); setResendMessage(''); setNeedsVerification(false); setMode(mode === 'login' ? 'register' : 'login'); }}>{mode === 'login' ? 'New here? List your shop' : 'Already registered? Sign in'}</button>
+        <input
+          type="password"
+          placeholder="Password"
+          value={f.password}
+          onChange={set('password')}
+          minLength={mode === 'register' ? 8 : undefined}
+          required
+        />
+        <button className="primary full" disabled={busy}>
+          {busy ? t.locating : mode === 'login' ? 'Sign in' : 'Register my shop'}
+        </button>
+        {mode === 'login' && needsVerification && (
+          <button type="button" className="link-btn" disabled={busy || !f.email} onClick={resend}>
+            Resend verification email
+          </button>
+        )}
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => {
+            setErr('');
+            setResendMessage('');
+            setNeedsVerification(false);
+            setMode(mode === 'login' ? 'register' : 'login');
+          }}
+        >
+          {mode === 'login' ? 'New here? List your shop' : 'Already registered? Sign in'}
+        </button>
       </form>
     </div>
   );
 }
 
-function PageTitle({ title, icon }) { return <div className="page-title"><span>{icon}</span><h1>{title}</h1></div>; }
-function Metric({ label, value }) { return <div className="metric"><small>{label}</small><strong>{value}</strong></div>; }
-function Loading() { return <div className="loading"><RefreshCw className="spin" size={18} />Loading local information…</div>; }
-function Empty({ text }) { return <div className="empty"><Search size={22} /><b>{text}</b></div>; }
-function marketPriceText(i) { return i.market_price_count >= 2 && i.market_price_min != null && i.market_price_max != null ? `Market price range: ₹${Number(i.market_price_min).toLocaleString('en-IN')}–₹${Number(i.market_price_max).toLocaleString('en-IN')} (${i.market_price_count} listings)` : 'Market price range: Not enough comparable listings yet'; }
-function priceText(i) { if (i.price_type === 'ON_REQUEST') return 'Price on request'; if (i.price_type === 'STARTING') return `Starting at ₹${i.price_min ?? i.price}`; if (i.price_type === 'FROM') return `From ₹${i.price_min ?? i.price}`; if (i.price_type === 'RANGE') return `₹${i.price_min}–₹${i.price_max}`; return i.price == null ? 'Contact for price' : `₹${i.price}`; }
-function relative(ts) { const m = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 60000)); if (m < 60) return `${m} min ago`; const h = Math.round(m / 60); if (h < 24) return `${h} hr ago`; return `${Math.round(h / 24)} day ago`; }
-function formatTime(v) { if (!v) return ''; const [h, m] = v.split(':').map(Number); const d = new Date(2000, 0, 1, h, m); return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); }
+function PageTitle({ title, icon }) {
+  return (
+    <div className="page-title">
+      <span>{icon}</span>
+      <h1>{title}</h1>
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="metric">
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Loading({ text = 'Loading local information…' }) {
+  return (
+    <div className="loading">
+      <RefreshCw className="spin" size={18} />
+      {text}
+    </div>
+  );
+}
+
+function Empty({ text }) {
+  return (
+    <div className="empty">
+      <Search size={22} />
+      <b>{text}</b>
+    </div>
+  );
+}
 
 export default App;
