@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, TrendingUp, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
@@ -67,7 +67,7 @@ const i18n = {
     about: 'About',
     callBusiness: 'Call business',
     contact: 'Contact',
-    serviceCoverage: 'Service coverage',
+    serviceCoverage: 'Route & Location',
     serviceArea: 'Service area',
     areaNotSpecified: 'Area not specified',
     maxRadius: 'Maximum radius',
@@ -110,9 +110,10 @@ const i18n = {
     addItem: 'Add item',
     noTips: 'No tips right now.',
     profileComplete: '% profile complete',
-    insideCoverage: 'You are inside this service area',
-    outsideCoverage: 'You are outside this service area',
+    insideCoverage: 'Shortest route found',
+    outsideCoverage: 'Route not available',
     customerLocationNotSet: 'Customer location not set',
+    shortestRoute: 'Shortest Route',
     deleteAccount: 'Delete account',
     deleteAccountConfirm: 'Are you sure you want to permanently delete your profile and shop listing? This action cannot be undone.',
     deletingAccount: 'Deleting account…',
@@ -184,7 +185,7 @@ const i18n = {
     about: 'दुकान के बारे में',
     callBusiness: 'कॉल करें',
     contact: 'संपर्क करें',
-    serviceCoverage: 'सर्विस कवरेज',
+    serviceCoverage: 'रास्ता और लोकेशन',
     serviceArea: 'सर्विस क्षेत्र',
     areaNotSpecified: 'क्षेत्र निर्दिष्ट नहीं है',
     maxRadius: 'अधिकतम दायरा',
@@ -227,9 +228,10 @@ const i18n = {
     addItem: 'सामान जोड़ें',
     noTips: 'अभी कोई सुझाव उपलब्ध नहीं हैं।',
     profileComplete: '% प्रोफ़ाइल पूर्ण',
-    insideCoverage: 'आप इस सर्विस क्षेत्र के अंदर हैं',
-    outsideCoverage: 'आप इस सर्विस क्षेत्र से बाहर हैं',
+    insideCoverage: 'सबसे छोटा रास्ता मिल गया',
+    outsideCoverage: 'रास्ता उपलब्ध नहीं है',
     customerLocationNotSet: 'ग्राहक लोकेशन सेट नहीं है',
+    shortestRoute: 'सबसे छोटा रास्ता',
     deleteAccount: 'खाता डिलीट करें',
     deleteAccountConfirm: 'क्या आप वाकई अपना प्रोफाइल और दुकान हमेशा के लिए हटाना चाहते हैं? यह वापस नहीं हो सकता।',
     deletingAccount: 'खाता हटाया जा रहा है…',
@@ -538,9 +540,6 @@ function App() {
             openBusiness={openBusiness}
             t={t}
             customerLocation={customerLocation}
-            locating={locating}
-            useMyLocation={useMyLocation}
-            locationMessage={locationMessage}
             setCustomerLocation={chooseCustomerLocation}
             onRegister={() => setAuthMode('register')}
             showRegister={!user}
@@ -552,6 +551,9 @@ function App() {
             onBack={() => setPage('home')}
             t={t}
             customerLocation={customerLocation}
+            locating={locating}
+            useMyLocation={useMyLocation}
+            locationMessage={locationMessage}
             setCustomerLocation={chooseCustomerLocation}
           />
         )}
@@ -634,9 +636,6 @@ function Home({
   openBusiness,
   t,
   customerLocation,
-  locating,
-  useMyLocation,
-  locationMessage,
   setCustomerLocation,
   onRegister,
   showRegister
@@ -669,7 +668,7 @@ function Home({
           </button>
         )}
       </div>
-      <LocationBar location={customerLocation} locating={locating} onLocate={useMyLocation} message={locationMessage} t={t} />
+
       <GoogleMapView
         businesses={businesses}
         customerLocation={customerLocation}
@@ -718,7 +717,7 @@ function LocationBar({ location, locating, onLocate, message, t }) {
   const lat = location?.lat || DEFAULT_LOCATION.lat;
   const lng = location?.lng || DEFAULT_LOCATION.lng;
   return (
-    <section className="location-bar panel">
+    <section className="location-bar panel" style={{ margin: '4px 0' }}>
       <div className="location-main">
         <div className="location-icon">
           <Navigation size={18} />
@@ -1088,21 +1087,20 @@ function haversineKmClient(a, b) {
 function ServiceCoverageMap({ business, customerLocation, onLocationChange, t }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
-  const customerMarkerRef = useRef(null);
-  const businessMarkerRef = useRef(null);
-  const circleRef = useRef(null);
+  const directionsRendererRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState('');
+  const [routeInfo, setRouteInfo] = useState(null);
+
   const provider = { lat: Number(business.latitude), lng: Number(business.longitude) };
   const customer = { lat: Number(customerLocation?.lat), lng: Number(customerLocation?.lng) };
-  const distance = haversineKmClient(provider, customer);
-  const radius = Math.max(0, Number(business.max_service_radius) || 0);
-  const inCoverage = distance != null && radius > 0 && distance <= radius;
+  const hasValidCustomerCoords = Number.isFinite(customer.lat) && Number.isFinite(customer.lng);
+  const hasValidProviderCoords = Number.isFinite(provider.lat) && Number.isFinite(provider.lng);
 
   useEffect(() => {
     let cancelled = false;
     if (!GOOGLE_MAPS_API_KEY) {
-      setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable coverage map.');
+      setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable shortest route on map.');
       return;
     }
     if (window.google?.maps) {
@@ -1135,90 +1133,72 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange, t })
   }, []);
 
   useEffect(() => {
-    if (!ready || !ref.current || !window.google?.maps || !Number.isFinite(provider.lat) || !Number.isFinite(provider.lng))
-      return;
-    const center = Number.isFinite(customer.lat) && Number.isFinite(customer.lng) ? customer : provider;
+    if (!ready || !ref.current || !window.google?.maps || !hasValidProviderCoords) return;
+
     if (!mapRef.current) {
       mapRef.current = new window.google.maps.Map(ref.current, {
-        center,
-        zoom: 12,
+        center: provider,
+        zoom: 13,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
         gestureHandling: 'greedy'
       });
       mapRef.current.addListener('click', e => {
-        if (e.latLng && onLocationChange)
+        if (e.latLng && onLocationChange) {
           onLocationChange({
             lat: Number(e.latLng.lat().toFixed(6)),
             lng: Number(e.latLng.lng().toFixed(6)),
             label: t.pinnedLocation
           });
-      });
-    } else mapRef.current.setCenter(center);
-
-    if (customerMarkerRef.current) customerMarkerRef.current.setMap(null);
-    if (businessMarkerRef.current) businessMarkerRef.current.setMap(null);
-    if (circleRef.current) circleRef.current.setMap(null);
-
-    businessMarkerRef.current = new window.google.maps.Marker({
-      map: mapRef.current,
-      position: provider,
-      title: `${business.name}`,
-      label: { text: 'E', color: '#fff', fontWeight: '800' },
-      icon: {
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#e65f20',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 2
-      }
-    });
-    customerMarkerRef.current = new window.google.maps.Marker({
-      map: mapRef.current,
-      position: customer,
-      title: 'Your location',
-      label: { text: 'You', color: '#fff', fontWeight: '800' },
-      icon: {
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale: 9,
-        fillColor: inCoverage ? '#168b5b' : '#c43b35',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 2
-      }
-    });
-    if (radius > 0) {
-      circleRef.current = new window.google.maps.Circle({
-        map: mapRef.current,
-        center: provider,
-        radius: radius * 1000,
-        fillColor: '#e65f20',
-        fillOpacity: 0.1,
-        strokeColor: '#e65f20',
-        strokeOpacity: 0.5,
-        strokeWeight: 2,
-        clickable: false
+        }
       });
     }
-    const bounds = new window.google.maps.LatLngBounds();
-    bounds.extend(provider);
-    if (Number.isFinite(customer.lat) && Number.isFinite(customer.lng)) bounds.extend(customer);
-    mapRef.current.fitBounds(bounds, { top: 48, right: 48, bottom: 48, left: 48 });
-  }, [
-    ready,
-    business.id,
-    business.name,
-    business.latitude,
-    business.longitude,
-    business.max_service_radius,
-    customerLocation?.lat,
-    customerLocation?.lng,
-    inCoverage,
-    onLocationChange,
-    t
-  ]);
+
+    if (!directionsRendererRef.current) {
+      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+        map: mapRef.current,
+        suppressMarkers: false,
+        polylineOptions: {
+          strokeColor: '#e65f20',
+          strokeWeight: 5,
+          strokeOpacity: 0.85
+        }
+      });
+    }
+
+    if (hasValidCustomerCoords) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: customer,
+          destination: provider,
+          travelMode: window.google.maps.TravelMode.DRIVING
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK && result) {
+            directionsRendererRef.current.setDirections(result);
+            const leg = result.routes[0]?.legs[0];
+            if (leg) {
+              setRouteInfo({
+                distance: leg.distance?.text,
+                duration: leg.duration?.text
+              });
+            }
+          } else {
+            setRouteInfo(null);
+            const bounds = new window.google.maps.LatLngBounds();
+            bounds.extend(provider);
+            bounds.extend(customer);
+            mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+          }
+        }
+      );
+    } else {
+      mapRef.current.setCenter(provider);
+      mapRef.current.setZoom(14);
+    }
+  }, [ready, business.latitude, business.longitude, customerLocation?.lat, customerLocation?.lng, hasValidCustomerCoords, hasValidProviderCoords, t]);
 
   if (!GOOGLE_MAPS_API_KEY) return null;
 
@@ -1226,10 +1206,11 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange, t })
     <section className="service-coverage-map panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">{t.serviceCoverage}</span>
-          <h2>{business.name} coverage area</h2>
+          <span className="eyebrow">{t.shortestRoute}</span>
+          <h2>{business.name}</h2>
+          <small>Shortest path navigation from your location to this shop</small>
         </div>
-        <MapPin size={18} />
+        <Route size={20} color="#e65f20" />
       </div>
       {mapError ? (
         <div className="error-banner">{mapError}</div>
@@ -1238,9 +1219,9 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange, t })
       )}
       <div
         className={
-          distance == null
+          !hasValidCustomerCoords
             ? 'coverage-result unknown'
-            : inCoverage
+            : routeInfo
             ? 'coverage-result inside'
             : 'coverage-result outside'
         }
@@ -1248,16 +1229,16 @@ function ServiceCoverageMap({ business, customerLocation, onLocationChange, t })
         <span className="coverage-dot" />
         <div>
           <b>
-            {distance == null
+            {!hasValidCustomerCoords
               ? t.customerLocationNotSet
-              : inCoverage
-              ? t.insideCoverage
+              : routeInfo
+              ? `${t.shortestRoute}: ${routeInfo.distance} (~${routeInfo.duration})`
               : t.outsideCoverage}
           </b>
           <small>
-            {distance == null
+            {!hasValidCustomerCoords
               ? t.chooseLocation
-              : `${distance.toFixed(1)} km · max ${radius} km`}
+              : `Fastest driving route calculated to ${business.name}.`}
           </small>
         </div>
       </div>
@@ -1325,7 +1306,16 @@ function BusinessCard({ b, openBusiness, t }) {
   );
 }
 
-function Business({ business, onBack, t, customerLocation, setCustomerLocation }) {
+function Business({
+  business,
+  onBack,
+  t,
+  customerLocation,
+  locating,
+  useMyLocation,
+  locationMessage,
+  setCustomerLocation
+}) {
   return (
     <div className="stack">
       <button className="back" onClick={onBack}>
@@ -1338,10 +1328,20 @@ function Business({ business, onBack, t, customerLocation, setCustomerLocation }
             <h1>{business.name}</h1>
             {business.verified ? <ShieldCheck size={18} /> : null}
           </div>
-          <p>{business.category}{distText(business) ? ` · ${distText(business)}` : ''}</p>
+          <p>{business.category}{distText(business) ? ` · ${distText(business)} away` : ''}</p>
           <div className={business.is_open ? 'status open' : 'status closed'}>{business.status_label}</div>
         </div>
       </section>
+
+      {/* Customer Location Window inside the Shop details */}
+      <LocationBar
+        location={customerLocation}
+        locating={locating}
+        onLocate={useMyLocation}
+        message={locationMessage}
+        t={t}
+      />
+
       <div className="info-grid">
         <div>
           <MapPin size={17} />
@@ -1368,53 +1368,59 @@ function Business({ business, onBack, t, customerLocation, setCustomerLocation }
           </span>
         </div>
       </div>
+
+      {/* Shortest Path Map between You and the Shop */}
+      {business.latitude != null && business.longitude != null && (
+        <ServiceCoverageMap
+          business={business}
+          customerLocation={customerLocation}
+          onLocationChange={setCustomerLocation}
+          t={t}
+        />
+      )}
+
       {business.home_visit ? (
-        <>
-          <ServiceCoverageMap
-            business={business}
-            customerLocation={customerLocation}
-            onLocationChange={setCustomerLocation}
-            t={t}
-          />
-          <section className="service-detail-panel panel">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">{t.servicesCategory.toUpperCase()}</span>
-                <h2>{t.serviceCoverage}</h2>
-              </div>
-              <MapPin size={18} />
+        <section className="service-detail-panel panel">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">{t.servicesCategory.toUpperCase()}</span>
+              <h2>{t.serviceCoverage}</h2>
             </div>
-            <div className="service-detail-grid">
-              <div>
-                <small>{t.serviceArea}</small>
-                <b>{business.service_area || t.areaNotSpecified}</b>
-              </div>
-              <div>
-                <small>{t.maxRadius}</small>
-                <b>{business.max_service_radius || '—'} km</b>
-              </div>
-              <div>
-                <small>{t.visitCharge}</small>
-                <b>₹{Number(business.visit_charge || 0).toLocaleString('en-IN')}</b>
-              </div>
-              <div>
-                <small>{t.availability}</small>
-                <b>{business.status_label}</b>
-              </div>
+            <MapPin size={18} />
+          </div>
+          <div className="service-detail-grid">
+            <div>
+              <small>{t.serviceArea}</small>
+              <b>{business.service_area || t.areaNotSpecified}</b>
             </div>
-            <a className="primary call" href={`tel:${business.phone}`}>
-              <Phone size={16} /> {t.contact} {business.phone}
-            </a>
-          </section>
-        </>
+            <div>
+              <small>{t.maxRadius}</small>
+              <b>{business.max_service_radius || '—'} km</b>
+            </div>
+            <div>
+              <small>{t.visitCharge}</small>
+              <b>₹{Number(business.visit_charge || 0).toLocaleString('en-IN')}</b>
+            </div>
+            <div>
+              <small>{t.availability}</small>
+              <b>{business.status_label}</b>
+            </div>
+          </div>
+          <a className="primary call" href={`tel:${business.phone}`}>
+            <Phone size={16} /> {t.contact} {business.phone}
+          </a>
+        </section>
       ) : null}
+
       {business.photos?.length ? <PhotoGallery photos={business.photos} name={business.name} t={t} /> : null}
+
       {business.description && (
         <section className="panel">
           <h2>{t.about}</h2>
           <p>{business.description}</p>
         </section>
       )}
+
       <section className="panel">
         <div className="section-head">
           <h2>{t.catalog}</h2>
@@ -1441,6 +1447,7 @@ function Business({ business, onBack, t, customerLocation, setCustomerLocation }
           ))}
         </div>
       </section>
+
       <section className="panel">
         <div className="section-head">
           <h2>{t.hours}</h2>
@@ -1455,6 +1462,7 @@ function Business({ business, onBack, t, customerLocation, setCustomerLocation }
           ))}
         </div>
       </section>
+
       <a className="primary call" href={`tel:${business.phone}`}>
         <Phone size={17} /> {t.callBusiness}
       </a>
