@@ -120,8 +120,10 @@ function App(){
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={()=>{setPage('home');setSelected(null)}}>
-          <span className="brand-mark">MH</span>
-          <span><b>Market Hub</b><small>{t.tagline}</small></span>
+          <span className="brand-mark" style={{background:'transparent',padding:0}}>
+            <img src="/logo.png" alt="Jamghat" onError={e=>{e.target.style.display='none';e.target.parentNode.textContent='J'}}/>
+          </span>
+          <span><b>Jamghat</b><small>{t.tagline}</small></span>
         </button>
         <div className="top-actions">
           <button className="icon-btn" title="Language" onClick={()=>setLang(x=>x==='en'?'hi':'en')}>{lang==='en'?'हिन्दी':'EN'}</button>
