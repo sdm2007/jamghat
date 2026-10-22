@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, TrendingUp, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
@@ -113,6 +113,9 @@ const i18n = {
     insideCoverage: 'You are inside this service area',
     outsideCoverage: 'You are outside this service area',
     customerLocationNotSet: 'Customer location not set',
+    deleteAccount: 'Delete account',
+    deleteAccountConfirm: 'Are you sure you want to permanently delete your profile and shop listing? This action cannot be undone.',
+    deletingAccount: 'Deleting account…',
     allCategory: 'All',
     booksCategory: 'Books',
     groceryCategory: 'Grocery',
@@ -221,6 +224,9 @@ const i18n = {
     insideCoverage: 'आप इस सर्विस क्षेत्र के अंदर हैं',
     outsideCoverage: 'आप इस सर्विस क्षेत्र से बाहर हैं',
     customerLocationNotSet: 'ग्राहक लोकेशन सेट नहीं है',
+    deleteAccount: 'खाता डिलीट करें',
+    deleteAccountConfirm: 'क्या आप वाकई अपना प्रोफाइल और दुकान हमेशा के लिए हटाना चाहते हैं? यह वापस नहीं हो सकता।',
+    deletingAccount: 'खाता हटाया जा रहा है…',
     allCategory: 'सब',
     booksCategory: 'किताबें',
     groceryCategory: 'किराना',
@@ -247,7 +253,7 @@ const getCategoryList = t => [
   ['Agriculture & Tools', t.kisanCategory, '🚜']
 ];
 
-const distText = (b, lang) => {
+const distText = b => {
   const d = Number(b?.distance);
   return Number.isFinite(d) && d < 900 ? `${d} km` : '';
 };
@@ -1512,6 +1518,7 @@ function BusinessDashboard({ api, t, logout }) {
   const [closedToday, setClosedToday] = useState(false);
   const [specialNote, setSpecialNote] = useState('');
   const [msg, setMsg] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -1563,6 +1570,18 @@ function BusinessDashboard({ api, t, logout }) {
     setMsg(`${i.name} stock updated.`);
   }
 
+  async function handleDeleteProfile() {
+    if (!window.confirm(t.deleteAccountConfirm)) return;
+    setDeleting(true);
+    try {
+      await api('/auth/me', { method: 'DELETE' });
+      logout();
+    } catch (e) {
+      setMsg(e.message || 'Failed to delete account.');
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="stack">
       <PageTitle title={t.dashboard} icon={<Store />} />
@@ -1575,10 +1594,16 @@ function BusinessDashboard({ api, t, logout }) {
             {t.profileComplete}
           </p>
         </div>
-        <button className="danger-outline" onClick={logout}>
-          <LogOut size={16} />
-          {t.logout}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button className="danger-outline" onClick={handleDeleteProfile} disabled={deleting}>
+            <Trash2 size={16} />
+            {deleting ? t.deletingAccount : t.deleteAccount}
+          </button>
+          <button className="secondary small" onClick={logout}>
+            <LogOut size={16} />
+            {t.logout}
+          </button>
+        </div>
       </div>
       <div className="tabs">
         {[

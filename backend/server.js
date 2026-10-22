@@ -599,3 +599,49 @@ init().then(() => app.listen(PORT, () => console.log(`Jamghat backend running on
 });
 process.on('SIGTERM', async () => { await db.end(); process.exit(0); });
 process.on('SIGINT', async () => { await db.end(); process.exit(0); });
+app.delete('/api/auth/me', auth, async (req, res) => {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. If user is a business owner, delete associated business & items
+    const ownerRow = await client.query('SELECT business_id FROM business_owners WHERE user_id = $1', [req.user.id]);
+    if (ownerRow.rows.length > 0) {
+      const bizId = ownerRow.rows[0].business_id;
+
+      // Clean up Supabase storage photos for this business if any
+      const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
+      for (const p of photos.rows) {
+        if (p.storage_path) {
+          try {
+            await storageRequest('/object/' + encodeURIComponent(SUPABASE_STORAGE_BUCKET), {
+              method: 'DELETE',
+              body: JSON.stringify({ prefixes: [p.storage_path] })
+            });
+          } catch (err) {
+            console.warn('Storage photo deletion warning:', err.message);
+          }
+        }
+      }
+
+      // Deleting from businesses cascades items, business_hours, and business_photos via schema FKs
+      await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
+    }
+
+    // 2. Clear sessions and delete user account
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.id]);
+    await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+
+    await client.query('COMMIT');
+
+    // Clear session cookie
+    res.clearCookie('jg_session', { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/' });
+    res.json({ ok: true, message: 'Account and associated business data deleted successfully.' });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message || 'Could not delete profile.' });
+  } finally {
+    client.release();
+  }
+});
