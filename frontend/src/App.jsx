@@ -50,8 +50,8 @@ const i18n = {
     exploreMap: 'EXPLORE ON MAP',
     liveLocationMap: 'LIVE LOCATION MAP',
     whoServesArea: 'Who serves this area?',
-    whatIsNearby: 'What is nearby?',
-    tapToExplore: 'Tap to explore nearby shops and services',
+    whatIsNearby: 'What is nearby & shortest route',
+    tapToExplore: 'Tap to explore nearby shops and route',
     tapToHide: 'Tap to hide the map.',
     homeServiceRadar: 'HOME SERVICE RADAR',
     whoCanCome: 'Who can come to your area?',
@@ -168,8 +168,8 @@ const i18n = {
     exploreMap: 'नक्शे पर देखें',
     liveLocationMap: 'लाइव लोकेशन मैप',
     whoServesArea: 'इस क्षेत्र में कौन सी सेवाएं उपलब्ध हैं?',
-    whatIsNearby: 'आस-पास क्या है?',
-    tapToExplore: 'आस-पास की दुकानों को देखने के लिए टैप करें',
+    whatIsNearby: 'आस-पास की दुकानें और सबसे छोटा रास्ता',
+    tapToExplore: 'नक्शा और रास्ता देखने के लिए टैप करें',
     tapToHide: 'नक्शा छिपाने के लिए टैप करें',
     homeServiceRadar: 'होम सर्विस रडार',
     whoCanCome: 'आपके घर तक कौन सी सर्विस आ सकती है?',
@@ -676,7 +676,7 @@ function Home({
         )}
       </div>
 
-      {/* Location selector on Front Page */}
+      {/* Front page location selector */}
       <LocationBar
         location={customerLocation}
         locating={locating}
@@ -760,20 +760,26 @@ function LocationBar({ location, locating, onLocate, message, t }) {
   );
 }
 
-function GoogleMapView({ businesses, customerLocation, homeServices, openBusiness, onLocationChange, t }) {
+function SingleShopRouteMap({ business, businesses = [], customerLocation, onBack, t, openBusiness }) {
   const [expanded, setExpanded] = useState(true);
   const ref = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
-  const circlesRef = useRef([]);
+  const directionsRendererRef = useRef(null);
   const infoRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState('');
+  const [routeInfo, setRouteInfo] = useState(null);
+
+  const provider = { lat: Number(business.latitude), lng: Number(business.longitude) };
+  const customer = { lat: Number(customerLocation?.lat), lng: Number(customerLocation?.lng) };
+  const hasValidCustomerCoords = Number.isFinite(customer.lat) && Number.isFinite(customer.lng);
+  const hasValidProviderCoords = Number.isFinite(provider.lat) && Number.isFinite(provider.lng);
 
   useEffect(() => {
     let cancelled = false;
     if (!GOOGLE_MAPS_API_KEY) {
-      setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable the live Google Map.');
+      setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable map.');
       return;
     }
     if (window.google?.maps) {
@@ -782,10 +788,14 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
     }
     const existing = document.getElementById('google-maps-script');
     if (existing) {
-      existing.addEventListener('load', () => !cancelled && setReady(true));
-      existing.addEventListener('error', () => !cancelled && setMapError('Google Maps could not be loaded.'));
+      const onLoad = () => !cancelled && setReady(true);
+      const onError = () => !cancelled && setMapError('Google Maps could not be loaded.');
+      existing.addEventListener('load', onLoad);
+      existing.addEventListener('error', onError);
       return () => {
         cancelled = true;
+        existing.removeEventListener('load', onLoad);
+        existing.removeEventListener('error', onError);
       };
     }
     const script = document.createElement('script');
@@ -805,121 +815,139 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
     if (!expanded) {
       mapRef.current = null;
       markersRef.current.forEach(m => m.setMap(null));
-      circlesRef.current.forEach(c => c.setMap(null));
       markersRef.current = [];
-      circlesRef.current = [];
-      if (infoRef.current) infoRef.current.close();
+      if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
       return;
     }
-    if (!ready || !ref.current || !window.google?.maps) return;
-    const center = {
-      lat: Number(customerLocation?.lat || DEFAULT_LOCATION.lat),
-      lng: Number(customerLocation?.lng || DEFAULT_LOCATION.lng)
-    };
+
+    if (!ready || !ref.current || !window.google?.maps || !hasValidProviderCoords) return;
+
     if (!mapRef.current) {
       mapRef.current = new window.google.maps.Map(ref.current, {
-        center,
+        center: provider,
         zoom: 13,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
         gestureHandling: 'greedy'
       });
-      mapRef.current.addListener('click', e => {
-        if (e.latLng && onLocationChange) {
-          onLocationChange({
-            lat: Number(e.latLng.lat().toFixed(6)),
-            lng: Number(e.latLng.lng().toFixed(6)),
-            label: t.pinnedLocation
-          });
-        }
-      });
-    } else mapRef.current.setCenter(center);
+      // NOTE: Removed click listener so clicking the map does not shift your location pin!
+    }
 
+    // Clean up previous markers
     markersRef.current.forEach(m => m.setMap(null));
-    circlesRef.current.forEach(c => c.setMap(null));
     markersRef.current = [];
-    circlesRef.current = [];
     if (infoRef.current) infoRef.current.close();
 
-    const customerMarker = new window.google.maps.Marker({
+    // 1. Plot current shop pin
+    const shopMarker = new window.google.maps.Marker({
       map: mapRef.current,
-      position: center,
-      title: 'Your location',
-      label: { text: 'You', color: '#ffffff', fontWeight: '800' },
-      icon: {
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale: 9,
-        fillColor: '#e65f20',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2
-      }
+      position: provider,
+      title: business.name,
+      label: { text: business.name.slice(0, 1), color: '#ffffff', fontWeight: '800' }
     });
-    markersRef.current.push(customerMarker);
-    const bounds = new window.google.maps.LatLngBounds();
-    bounds.extend(center);
-    const list = businesses.filter(b => b.latitude != null && b.longitude != null);
-    list.forEach(b => {
+    markersRef.current.push(shopMarker);
+
+    // 2. Plot customer location pin
+    if (hasValidCustomerCoords) {
+      const customerMarker = new window.google.maps.Marker({
+        map: mapRef.current,
+        position: customer,
+        title: t.currentLocationText,
+        label: { text: 'You', color: '#ffffff', fontWeight: '800' },
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: '#e65f20',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      });
+      markersRef.current.push(customerMarker);
+    }
+
+    // 3. Plot other nearby shops
+    const otherShops = businesses.filter(
+      b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
+    );
+
+    otherShops.forEach(b => {
       const pos = { lat: Number(b.latitude), lng: Number(b.longitude) };
-      const marker = new window.google.maps.Marker({
+      const m = new window.google.maps.Marker({
         map: mapRef.current,
         position: pos,
         title: b.name,
-        label: { text: b.name.slice(0, 1), color: '#ffffff', fontWeight: '800' }
+        opacity: 0.7,
+        label: { text: b.name.slice(0, 1), color: '#ffffff', fontWeight: '700' }
       });
-      marker.addListener('click', () => {
+      m.addListener('click', () => {
         if (infoRef.current) infoRef.current.close();
         const contentStr =
-          '<div style="min-width:210px;font-family:Arial,sans-serif">' +
-          '<strong>' +
-          escapeHtml(b.name) +
-          '</strong>' +
-          '<div style="margin-top:5px;color:#666">' +
-          escapeHtml(b.category) +
-          ' · ' +
-          escapeHtml(String(b.distance || '—')) +
-          ' km away</div>' +
-          (b.home_visit
-            ? '<div style="margin-top:5px">Serves: ' +
-              escapeHtml(b.service_area || t.areaNotSpecified) +
-              '</div><div>Coverage: up to ' +
-              escapeHtml(String(b.max_service_radius || '—')) +
-              ' km</div><div>Visit charge: ₹' +
-              Number(b.visit_charge || 0).toLocaleString('en-IN') +
-              '</div>'
-            : '') +
-          '<button id="map-open-' +
-          b.id +
-          '" style="margin-top:8px;padding:6px 9px;border:0;border-radius:7px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">' +
+          '<div style="min-width:200px;font-family:Arial,sans-serif">' +
+          '<strong>' + escapeHtml(b.name) + '</strong>' +
+          '<div style="margin-top:4px;color:#666">' + escapeHtml(b.category) + '</div>' +
+          '<button id="map-goto-' + b.id + '" style="margin-top:8px;padding:5px 9px;border:0;border-radius:6px;background:#e65f20;color:#fff;font-weight:700;cursor:pointer">' +
           escapeHtml(t.viewDetails) +
           '</button>' +
           '</div>';
         infoRef.current = new window.google.maps.InfoWindow({ content: contentStr });
-        infoRef.current.open({ map: mapRef.current, anchor: marker });
-        window.setTimeout(
-          () => document.getElementById(`map-open-${b.id}`)?.addEventListener('click', () => openBusiness(b)),
-          0
-        );
+        infoRef.current.open({ map: mapRef.current, anchor: m });
+        window.setTimeout(() => {
+          document.getElementById(`map-goto-${b.id}`)?.addEventListener('click', () => openBusiness(b));
+        }, 0);
       });
-      markersRef.current.push(marker);
-      bounds.extend(pos);
-      if (homeServices && b.home_visit && Number(b.max_service_radius) > 0) {
-        const circle = new window.google.maps.Circle({
-          map: mapRef.current,
-          center: pos,
-          radius: Number(b.max_service_radius) * 1000,
-          fillColor: '#e65f20',
-          fillOpacity: 0.08,
-          strokeColor: '#e65f20',
-          strokeOpacity: 0.28,
-          strokeWeight: 1
-        });
-        circlesRef.current.push(circle);
-      }
+      markersRef.current.push(m);
     });
-    if (list.length > 0) mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [ready, expanded, businesses, customerLocation?.lat, customerLocation?.lng, homeServices, openBusiness, t]);
+
+    // 4. Calculate and draw shortest route without replacing custom markers
+    if (!directionsRendererRef.current) {
+      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+        map: mapRef.current,
+        suppressMarkers: true, // keeps our custom labeled markers intact
+        polylineOptions: {
+          strokeColor: '#e65f20',
+          strokeWeight: 5,
+          strokeOpacity: 0.85
+        }
+      });
+    }
+
+    if (hasValidCustomerCoords) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: customer,
+          destination: provider,
+          travelMode: window.google.maps.TravelMode.DRIVING
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK && result) {
+            directionsRendererRef.current.setDirections(result);
+            const leg = result.routes[0]?.legs[0];
+            if (leg) {
+              setRouteInfo({
+                distance: leg.distance?.text,
+                duration: leg.duration?.text
+              });
+            }
+          } else {
+            setRouteInfo(null);
+            const bounds = new window.google.maps.LatLngBounds();
+            bounds.extend(provider);
+            bounds.extend(customer);
+            mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+          }
+        }
+      );
+    } else {
+      mapRef.current.setCenter(provider);
+      mapRef.current.setZoom(14);
+    }
+  }, [ready, expanded, business.id, business.latitude, business.longitude, customerLocation?.lat, customerLocation?.lng, businesses, hasValidCustomerCoords, hasValidProviderCoords, t]);
+
+  if (!GOOGLE_MAPS_API_KEY) return null;
 
   return (
     <section className={`map-panel panel map-collapsible ${expanded ? 'expanded' : ''}`}>
@@ -934,25 +962,48 @@ function GoogleMapView({ businesses, customerLocation, homeServices, openBusines
         </span>
         <span className="map-collapse-copy">
           <span className="eyebrow">{expanded ? t.liveLocationMap : t.exploreMap}</span>
-          <b>{homeServices ? t.whoServesArea : t.whatIsNearby}</b>
+          <b>{t.whatIsNearby}</b>
           <small>{expanded ? t.tapToHide : t.tapToExplore}</small>
         </span>
         <span className="map-collapse-chevron">{expanded ? '−' : '+'}</span>
       </button>
-      {expanded &&
-        (!GOOGLE_MAPS_API_KEY ? (
-          <div className="map-fallback">
-            <MapPin size={24} />
+
+      {expanded && (
+        <>
+          {mapError ? (
+            <div className="error-banner">{mapError}</div>
+          ) : (
+            <div ref={ref} className="google-map" style={{ height: '360px', marginTop: '10px' }} aria-label="Google map" />
+          )}
+
+          <div
+            className={
+              !hasValidCustomerCoords
+                ? 'coverage-result unknown'
+                : routeInfo
+                ? 'coverage-result inside'
+                : 'coverage-result outside'
+            }
+            style={{ marginTop: '12px' }}
+          >
+            <span className="coverage-dot" />
             <div>
-              <b>{t.liveLocationMap}</b>
-              <p>{mapError}</p>
+              <b>
+                {!hasValidCustomerCoords
+                  ? t.customerLocationNotSet
+                  : routeInfo
+                  ? `${t.shortestRoute}: ${routeInfo.distance} (~${routeInfo.duration})`
+                  : t.outsideCoverage}
+              </b>
+              <small>
+                {!hasValidCustomerCoords
+                  ? t.chooseLocation
+                  : `Calculated shortest path to ${business.name}.`}
+              </small>
             </div>
           </div>
-        ) : mapError ? (
-          <div className="error-banner">{mapError}</div>
-        ) : (
-          <div ref={ref} className="google-map" aria-label="Google map" />
-        ))}
+        </>
+      )}
     </section>
   );
 }
@@ -1073,187 +1124,6 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
   );
 }
 
-function haversineKmClient(a, b) {
-  if (
-    !a ||
-    !b ||
-    !Number.isFinite(Number(a.lat)) ||
-    !Number.isFinite(Number(a.lng)) ||
-    !Number.isFinite(Number(b.lat)) ||
-    !Number.isFinite(Number(b.lng))
-  )
-    return null;
-  const R = 6371,
-    rad = Math.PI / 180;
-  const dLat = (Number(b.lat) - Number(a.lat)) * rad,
-    dLng = (Number(b.lng) - Number(a.lng)) * rad;
-  const x =
-    Math.sin(dLat / 2) ** 2 + Math.cos(Number(a.lat) * rad) * Math.cos(Number(b.lat) * rad) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
-function ShortestRouteMap({ business, customerLocation, onLocationChange, t }) {
-  const ref = useRef(null);
-  const mapRef = useRef(null);
-  const directionsRendererRef = useRef(null);
-  const [ready, setReady] = useState(false);
-  const [mapError, setMapError] = useState('');
-  const [routeInfo, setRouteInfo] = useState(null);
-
-  const provider = { lat: Number(business.latitude), lng: Number(business.longitude) };
-  const customer = { lat: Number(customerLocation?.lat), lng: Number(customerLocation?.lng) };
-  const hasValidCustomerCoords = Number.isFinite(customer.lat) && Number.isFinite(customer.lng);
-  const hasValidProviderCoords = Number.isFinite(provider.lat) && Number.isFinite(provider.lng);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!GOOGLE_MAPS_API_KEY) {
-      setMapError('Add VITE_GOOGLE_MAPS_API_KEY to frontend/.env to enable shortest route on map.');
-      return;
-    }
-    if (window.google?.maps) {
-      setReady(true);
-      return;
-    }
-    const existing = document.getElementById('google-maps-script');
-    if (existing) {
-      const onLoad = () => !cancelled && setReady(true);
-      const onError = () => !cancelled && setMapError('Google Maps could not be loaded.');
-      existing.addEventListener('load', onLoad);
-      existing.addEventListener('error', onError);
-      return () => {
-        cancelled = true;
-        existing.removeEventListener('load', onLoad);
-        existing.removeEventListener('error', onError);
-      };
-    }
-    const script = document.createElement('script');
-    script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&v=weekly`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => !cancelled && setReady(true);
-    script.onerror = () => !cancelled && setMapError('Google Maps could not be loaded.');
-    document.head.appendChild(script);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!ready || !ref.current || !window.google?.maps || !hasValidProviderCoords) return;
-
-    if (!mapRef.current) {
-      mapRef.current = new window.google.maps.Map(ref.current, {
-        center: provider,
-        zoom: 13,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-        gestureHandling: 'greedy'
-      });
-      mapRef.current.addListener('click', e => {
-        if (e.latLng && onLocationChange) {
-          onLocationChange({
-            lat: Number(e.latLng.lat().toFixed(6)),
-            lng: Number(e.latLng.lng().toFixed(6)),
-            label: t.pinnedLocation
-          });
-        }
-      });
-    }
-
-    if (!directionsRendererRef.current) {
-      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
-        map: mapRef.current,
-        suppressMarkers: false,
-        polylineOptions: {
-          strokeColor: '#e65f20',
-          strokeWeight: 5,
-          strokeOpacity: 0.85
-        }
-      });
-    }
-
-    if (hasValidCustomerCoords) {
-      const directionsService = new window.google.maps.DirectionsService();
-      directionsService.route(
-        {
-          origin: customer,
-          destination: provider,
-          travelMode: window.google.maps.TravelMode.DRIVING
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK && result) {
-            directionsRendererRef.current.setDirections(result);
-            const leg = result.routes[0]?.legs[0];
-            if (leg) {
-              setRouteInfo({
-                distance: leg.distance?.text,
-                duration: leg.duration?.text
-              });
-            }
-          } else {
-            setRouteInfo(null);
-            const bounds = new window.google.maps.LatLngBounds();
-            bounds.extend(provider);
-            bounds.extend(customer);
-            mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-          }
-        }
-      );
-    } else {
-      mapRef.current.setCenter(provider);
-      mapRef.current.setZoom(14);
-    }
-  }, [ready, business.latitude, business.longitude, customerLocation?.lat, customerLocation?.lng, hasValidCustomerCoords, hasValidProviderCoords, t]);
-
-  if (!GOOGLE_MAPS_API_KEY) return null;
-
-  return (
-    <section className="service-coverage-map panel">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">{t.shortestRoute}</span>
-          <h2>{business.name}</h2>
-          <small>Shortest path navigation from your location to this shop</small>
-        </div>
-        <Route size={20} color="#e65f20" />
-      </div>
-      {mapError ? (
-        <div className="error-banner">{mapError}</div>
-      ) : (
-        <div ref={ref} className="google-map service-coverage-google-map" />
-      )}
-      <div
-        className={
-          !hasValidCustomerCoords
-            ? 'coverage-result unknown'
-            : routeInfo
-            ? 'coverage-result inside'
-            : 'coverage-result outside'
-        }
-      >
-        <span className="coverage-dot" />
-        <div>
-          <b>
-            {!hasValidCustomerCoords
-              ? t.customerLocationNotSet
-              : routeInfo
-              ? `${t.shortestRoute}: ${routeInfo.distance} (~${routeInfo.duration})`
-              : t.outsideCoverage}
-          </b>
-          <small>
-            {!hasValidCustomerCoords
-              ? t.chooseLocation
-              : `Fastest driving route calculated to ${business.name}.`}
-          </small>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function BusinessCard({ b, openBusiness, t }) {
   const go = () => openBusiness(b);
   return (
@@ -1343,23 +1213,15 @@ function Business({
         </div>
       </section>
 
-      {/* "What is nearby?" Live Location Map inside the shop page */}
-      <GoogleMapView
-        businesses={businesses}
-        customerLocation={customerLocation}
-        homeServices={business.category === 'Home Services'}
-        openBusiness={openBusiness}
-        onLocationChange={setCustomerLocation}
-        t={t}
-      />
-
-      {/* Shortest Path Map between You and the Shop */}
+      {/* Single Unified Map: Shows nearby shops + Shortest route without duplicate map or pointer jumping */}
       {business.latitude != null && business.longitude != null && (
-        <ShortestRouteMap
+        <SingleShopRouteMap
           business={business}
+          businesses={businesses}
           customerLocation={customerLocation}
-          onLocationChange={setCustomerLocation}
+          onBack={onBack}
           t={t}
+          openBusiness={openBusiness}
         />
       )}
 
