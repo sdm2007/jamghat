@@ -540,7 +540,9 @@ function App() {
             openBusiness={openBusiness}
             t={t}
             customerLocation={customerLocation}
-            setCustomerLocation={chooseCustomerLocation}
+            locating={locating}
+            useMyLocation={useMyLocation}
+            locationMessage={locationMessage}
             onRegister={() => setAuthMode('register')}
             showRegister={!user}
           />
@@ -548,6 +550,7 @@ function App() {
         {page === 'business' && selected && (
           <Business
             business={selected}
+            businesses={businesses}
             onBack={() => setPage('home')}
             t={t}
             customerLocation={customerLocation}
@@ -555,6 +558,7 @@ function App() {
             useMyLocation={useMyLocation}
             locationMessage={locationMessage}
             setCustomerLocation={chooseCustomerLocation}
+            openBusiness={openBusiness}
           />
         )}
         {page === 'dashboard' && user?.role === 'BUSINESS_OWNER' && <BusinessDashboard api={api} logout={logout} t={t} />}
@@ -636,7 +640,9 @@ function Home({
   openBusiness,
   t,
   customerLocation,
-  setCustomerLocation,
+  locating,
+  useMyLocation,
+  locationMessage,
   onRegister,
   showRegister
 }) {
@@ -659,6 +665,7 @@ function Home({
         </div>
         <div className="hero-orb">⌁</div>
       </section>
+
       <div className="search-wrap">
         <Search size={19} />
         <input id="market-search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t.search} />
@@ -669,14 +676,15 @@ function Home({
         )}
       </div>
 
-      <GoogleMapView
-        businesses={businesses}
-        customerLocation={customerLocation}
-        homeServices={category === 'Home Services'}
-        openBusiness={openBusiness}
-        onLocationChange={setCustomerLocation}
+      {/* Location selector on Front Page */}
+      <LocationBar
+        location={customerLocation}
+        locating={locating}
+        onLocate={useMyLocation}
+        message={locationMessage}
         t={t}
       />
+
       <div className="chips">
         {getCategoryList(t).map(([id, label, icon]) => (
           <button key={id} className={category === id ? 'chip active' : 'chip'} onClick={() => setCategory(id)}>
@@ -753,7 +761,7 @@ function LocationBar({ location, locating, onLocate, message, t }) {
 }
 
 function GoogleMapView({ businesses, customerLocation, homeServices, openBusiness, onLocationChange, t }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const ref = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -1084,7 +1092,7 @@ function haversineKmClient(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-function ServiceCoverageMap({ business, customerLocation, onLocationChange, t }) {
+function ShortestRouteMap({ business, customerLocation, onLocationChange, t }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const directionsRendererRef = useRef(null);
@@ -1308,13 +1316,15 @@ function BusinessCard({ b, openBusiness, t }) {
 
 function Business({
   business,
+  businesses,
   onBack,
   t,
   customerLocation,
   locating,
   useMyLocation,
   locationMessage,
-  setCustomerLocation
+  setCustomerLocation,
+  openBusiness
 }) {
   return (
     <div className="stack">
@@ -1333,14 +1343,25 @@ function Business({
         </div>
       </section>
 
-      {/* Customer Location Window inside the Shop details */}
-      <LocationBar
-        location={customerLocation}
-        locating={locating}
-        onLocate={useMyLocation}
-        message={locationMessage}
+      {/* "What is nearby?" Live Location Map inside the shop page */}
+      <GoogleMapView
+        businesses={businesses}
+        customerLocation={customerLocation}
+        homeServices={business.category === 'Home Services'}
+        openBusiness={openBusiness}
+        onLocationChange={setCustomerLocation}
         t={t}
       />
+
+      {/* Shortest Path Map between You and the Shop */}
+      {business.latitude != null && business.longitude != null && (
+        <ShortestRouteMap
+          business={business}
+          customerLocation={customerLocation}
+          onLocationChange={setCustomerLocation}
+          t={t}
+        />
+      )}
 
       <div className="info-grid">
         <div>
@@ -1368,16 +1389,6 @@ function Business({
           </span>
         </div>
       </div>
-
-      {/* Shortest Path Map between You and the Shop */}
-      {business.latitude != null && business.longitude != null && (
-        <ServiceCoverageMap
-          business={business}
-          customerLocation={customerLocation}
-          onLocationChange={setCustomerLocation}
-          t={t}
-        />
-      )}
 
       {business.home_visit ? (
         <section className="service-detail-panel panel">
