@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, TrendingUp, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route, Tv
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
@@ -10,9 +10,15 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const DEFAULT_LOCATION = { lat: 22.7196, lng: 75.8577, label: 'Bada Bazaar, Indore' };
 
 const registerCategories = [
-  'Grocery', 'Books & Stationery', 'Beauty & Barber', 'Tailor', 'Mobile Repair', 'Bakery',
-  'Hardware', 'Home Services', 'Agriculture & Tools', 'Dairy & Sweets', 'Fruits & Vegetables',
-  'Footwear', 'Household & Kitchen', 'Mobile Accessories', 'Kids & Toys', 'Tea & Snacks', 'Other'
+  'Electronics & Appliances',
+  'Daily Needs & Kirana',
+  'Food, Sweets & Bakery',
+  'Clothing & Fashion',
+  'Home & Hardware',
+  'Personal Care & Salon',
+  'Services & Repairs',
+  'Books & Stationery',
+  'Other'
 ];
 
 const i18n = {
@@ -39,7 +45,7 @@ const i18n = {
     localDiscovery: 'LOCAL DISCOVERY',
     heroTitle1: 'Find what you need,',
     heroTitle2: 'nearby.',
-    heroSubtitle: 'Compare local prices, availability and opening hours before you go.',
+    heroSubtitle: 'Compare local options, availability and opening hours before you go.',
     yourLocation: 'YOUR LOCATION',
     chooseLocation: 'Choose your location',
     useMyLocation: 'Use my location',
@@ -85,29 +91,30 @@ const i18n = {
     availabilityUnverified: 'Availability unverified',
     onlyLeft: 'Only {n} left',
     itemsMatching: 'Items matching “{query}”',
-    comparePricesBeforeVisit: 'Compare listed prices and shops before visiting',
+    comparePricesBeforeVisit: 'Check availability and shop details before visiting',
     noItemsFound: 'No exact item listing found for this search.',
     emptyNearby: "We couldn't find this nearby. Try another search or expand your area.",
     loadingInfo: 'Loading local information…',
     priceOnRequest: 'Price on request',
+    priceOptionalPlaceholder: '₹ Price (Optional)',
     startingAt: 'Starting at ₹{p}',
     fromPrice: 'From ₹{p}',
     contactForPrice: 'Contact for price',
     marketPriceRange: 'Market price range: ₹{min}–₹{max} ({count} listings)',
-    notEnoughListings: 'Market price range: Not enough comparable listings yet',
+    notEnoughListings: 'Price available on contact',
     checkWithShop: 'Check availability with shop',
     shopPhotos: 'Shop photos',
     noPhotosYet: 'No photos yet.',
     overview: 'Overview',
-    inventory: 'Inventory',
+    inventory: 'Inventory & Items',
     demandTips: 'Demand tips',
     oneTimeChange: 'One-time change for today',
     save: 'Save',
     saveChanges: 'Save changes',
     addDescription: 'Add a description to improve your listing.',
     itemsCount: 'Items',
-    enterExactQty: 'Enter the exact quantity.',
-    addItem: 'Add item',
+    enterExactQty: 'Enter stock or leave blank.',
+    addItem: 'Add item / service',
     noTips: 'No tips right now.',
     profileComplete: '% profile complete',
     insideCoverage: 'Shortest route found',
@@ -123,16 +130,15 @@ const i18n = {
     adminApprove: 'Approve',
     adminReject: 'Reject',
     adminStatus: 'Status',
-    allCategory: 'All',
-    booksCategory: 'Books',
-    groceryCategory: 'Grocery',
-    salonCategory: 'Salon',
-    tailorCategory: 'Tailor',
-    mobileCategory: 'Mobile',
-    bakeryCategory: 'Bakery',
-    hardwareCategory: 'Hardware',
-    servicesCategory: 'Services',
-    kisanCategory: 'Kisan'
+    catAll: 'All',
+    catElectronics: 'Electronics & Appliances',
+    catGrocery: 'Daily Needs & Kirana',
+    catFood: 'Food, Sweets & Bakery',
+    catFashion: 'Clothing & Fashion',
+    catHardware: 'Home & Hardware',
+    catSalon: 'Personal Care & Salon',
+    catServices: 'Services & Repairs',
+    catBooks: 'Books & Stationery'
   },
   hi: {
     tagline: 'दुकान पास, भाव साफ़, सामान पक्का।',
@@ -157,7 +163,7 @@ const i18n = {
     localDiscovery: 'स्थानीय खोज',
     heroTitle1: 'ज़रूरी सामान पाएं,',
     heroTitle2: 'अपने पास।',
-    heroSubtitle: 'दुकान जाने से पहले आस-पास के भाव, स्टॉक और खुलने का समय जांचें।',
+    heroSubtitle: 'दुकान जाने से पहले आस-पास की दुकानें, उपलब्धता और समय जांचें।',
     yourLocation: 'आपकी लोकेशन',
     chooseLocation: 'अपनी लोकेशन चुनें',
     useMyLocation: 'मेरी लोकेशन का उपयोग करें',
@@ -203,29 +209,30 @@ const i18n = {
     availabilityUnverified: 'उपलब्धता असत्यापित',
     onlyLeft: 'केवल {n} बचे हैं',
     itemsMatching: '“{query}” से जुड़े सामान',
-    comparePricesBeforeVisit: 'दुकान जाने से पहले भाव और स्टॉक जांच लें',
+    comparePricesBeforeVisit: 'दुकान जाने से पहले विवरण और उपलब्धता जांचें',
     noItemsFound: 'इस खोज के लिए कोई सामान नहीं मिला।',
     emptyNearby: 'आस-पास कोई दुकान नहीं मिली। दूसरा शब्द खोजें या दायरा बढ़ाएं।',
     loadingInfo: 'जानकारी लोड हो रही है…',
     priceOnRequest: 'पूछने पर भाव',
+    priceOptionalPlaceholder: '₹ भाव (वैकल्पिक)',
     startingAt: 'शुरुआती भाव ₹{p}',
     fromPrice: 'न्यूनतम ₹{p}',
     contactForPrice: 'भाव के लिए संपर्क करें',
     marketPriceRange: 'बाज़ार भाव दायरा: ₹{min}–₹{max} ({count} दुकानें)',
-    notEnoughListings: 'बाज़ार भाव दायरा: अभी पर्याप्त तुलनात्मक लिस्टिंग नहीं हैं',
+    notEnoughListings: 'संपर्क करने पर भाव उपलब्ध',
     checkWithShop: 'दुकान से उपलब्धता की पुष्टि करें',
     shopPhotos: 'दुकान की तस्वीरें',
     noPhotosYet: 'अभी कोई तस्वीर नहीं है।',
     overview: 'विवरण',
-    inventory: 'स्टॉक सूची',
+    inventory: 'स्टॉक व सामान',
     demandTips: 'मांग के सुझाव',
     oneTimeChange: 'केवल आज के लिए बदलाव',
     save: 'सेव करें',
     saveChanges: 'बदलाव सेव करें',
     addDescription: 'लिस्टिंग बेहतर बनाने के लिए विवरण जोड़ें।',
     itemsCount: 'सामान',
-    enterExactQty: 'सटीक मात्रा दर्ज करें।',
-    addItem: 'सामान जोड़ें',
+    enterExactQty: 'स्टॉक मात्रा दर्ज करें या खाली छोड़ें।',
+    addItem: 'सामान / सर्विस जोड़ें',
     noTips: 'अभी कोई सुझाव उपलब्ध नहीं हैं।',
     profileComplete: '% प्रोफ़ाइल पूर्ण',
     insideCoverage: 'सबसे छोटा रास्ता मिल गया',
@@ -241,30 +248,28 @@ const i18n = {
     adminApprove: 'मंजूरी दें',
     adminReject: 'अस्वीकार करें',
     adminStatus: 'स्थिति',
-    allCategory: 'सब',
-    booksCategory: 'किताबें',
-    groceryCategory: 'किराना',
-    salonCategory: 'सैलून',
-    tailorCategory: 'टेलर',
-    mobileCategory: 'मोबाइल रिपेयर',
-    bakeryCategory: 'बेकरी',
-    hardwareCategory: 'हार्डवेयर',
-    servicesCategory: 'होम सर्विसेज',
-    kisanCategory: 'किसान उपकरण'
+    catAll: 'सब',
+    catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
+    catGrocery: 'किराना व दैनिक सामान',
+    catFood: 'भोजन, मिठाई व बेकरी',
+    catFashion: 'कपड़े व फैशन',
+    catHardware: 'घर व हार्डवेयर',
+    catSalon: 'सैलून व पर्सनल केयर',
+    catServices: 'सर्विस व मरम्मत',
+    catBooks: 'किताबें व स्टेशनरी'
   }
 };
 
 const getCategoryList = t => [
-  ['ALL', t.allCategory, '🏪'],
-  ['Books & Stationery', t.booksCategory, '📚'],
-  ['Grocery', t.groceryCategory, '🛒'],
-  ['Beauty & Barber', t.salonCategory, '✂️'],
-  ['Tailor', t.tailorCategory, '🧵'],
-  ['Mobile Repair', t.mobileCategory, '📱'],
-  ['Bakery', t.bakeryCategory, '🥐'],
-  ['Hardware', t.hardwareCategory, '🔧'],
-  ['Home Services', t.servicesCategory, '🏠'],
-  ['Agriculture & Tools', t.kisanCategory, '🚜']
+  ['ALL', t.catAll, '🏪'],
+  ['Electronics & Appliances', t.catElectronics, '⚡'],
+  ['Daily Needs & Kirana', t.catGrocery, '🛒'],
+  ['Food, Sweets & Bakery', t.catFood, '🍲'],
+  ['Clothing & Fashion', t.catFashion, '👕'],
+  ['Home & Hardware', t.catHardware, '🔧'],
+  ['Personal Care & Salon', t.catSalon, '✂️'],
+  ['Services & Repairs', t.catServices, '🛠️'],
+  ['Books & Stationery', t.catBooks, '📚']
 ];
 
 const distText = b => {
@@ -274,10 +279,11 @@ const distText = b => {
 
 function priceText(i, t) {
   if (i.price_type === 'ON_REQUEST') return t.priceOnRequest;
+  if (!i.price && !i.price_min && !i.price_max) return t.contactForPrice;
   if (i.price_type === 'STARTING') return t.startingAt.replace('{p}', i.price_min ?? i.price);
   if (i.price_type === 'FROM') return t.fromPrice.replace('{p}', i.price_min ?? i.price);
   if (i.price_type === 'RANGE') return `₹${i.price_min}–₹${i.price_max}`;
-  return i.price == null ? t.contactForPrice : `₹${i.price}`;
+  return Number(i.price) > 0 ? `₹${i.price}` : t.contactForPrice;
 }
 
 function marketPriceText(i, t) {
@@ -287,7 +293,7 @@ function marketPriceText(i, t) {
       .replace('{max}', Number(i.market_price_max).toLocaleString('en-IN'))
       .replace('{count}', i.market_price_count);
   }
-  return t.notEnoughListings;
+  return '';
 }
 
 function stockLabel(i, t) {
@@ -676,7 +682,6 @@ function Home({
         )}
       </div>
 
-      {/* Front page location selector */}
       <LocationBar
         location={customerLocation}
         locating={locating}
@@ -693,7 +698,7 @@ function Home({
           </button>
         ))}
       </div>
-      {category === 'Home Services' && !query && <HomeServiceRadar businesses={businesses} openBusiness={openBusiness} t={t} />}
+      {category === 'Services & Repairs' && !query && <HomeServiceRadar businesses={businesses} openBusiness={openBusiness} t={t} />}
       <section>
         <div className="section-head">
           <div>
@@ -760,7 +765,7 @@ function LocationBar({ location, locating, onLocate, message, t }) {
   );
 }
 
-function SingleShopRouteMap({ business, businesses = [], customerLocation, onBack, t, openBusiness }) {
+function SingleShopRouteMap({ business, businesses = [], customerLocation, t, openBusiness }) {
   const [expanded, setExpanded] = useState(true);
   const ref = useRef(null);
   const mapRef = useRef(null);
@@ -832,15 +837,12 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, onBac
         fullscreenControl: true,
         gestureHandling: 'greedy'
       });
-      // NOTE: Removed click listener so clicking the map does not shift your location pin!
     }
 
-    // Clean up previous markers
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
     if (infoRef.current) infoRef.current.close();
 
-    // 1. Plot current shop pin
     const shopMarker = new window.google.maps.Marker({
       map: mapRef.current,
       position: provider,
@@ -849,7 +851,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, onBac
     });
     markersRef.current.push(shopMarker);
 
-    // 2. Plot customer location pin
     if (hasValidCustomerCoords) {
       const customerMarker = new window.google.maps.Marker({
         map: mapRef.current,
@@ -868,7 +869,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, onBac
       markersRef.current.push(customerMarker);
     }
 
-    // 3. Plot other nearby shops
     const otherShops = businesses.filter(
       b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
     );
@@ -901,11 +901,10 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, onBac
       markersRef.current.push(m);
     });
 
-    // 4. Calculate and draw shortest route without replacing custom markers
     if (!directionsRendererRef.current) {
       directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
         map: mapRef.current,
-        suppressMarkers: true, // keeps our custom labeled markers intact
+        suppressMarkers: true,
         polylineOptions: {
           strokeColor: '#e65f20',
           strokeWeight: 5,
@@ -1049,7 +1048,7 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
               >
                 <span className="radar-dot" />
                 <span className="radar-label" style={{ transform: `rotate(${-angle}deg)` }}>
-                  {b.category.replace('Home Services', '')}
+                  {b.category}
                 </span>
               </button>
             );
@@ -1098,7 +1097,7 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
                   </a>
                 </span>
                 <strong>
-                  {t.visit} ₹{Number(b.visit_charge || 0).toLocaleString('en-IN')}
+                  {Number(b.visit_charge) > 0 ? `${t.visit} ₹${Number(b.visit_charge).toLocaleString('en-IN')}` : t.contactForPrice}
                 </strong>
               </div>
               <div className="service-tags">
@@ -1190,10 +1189,6 @@ function Business({
   onBack,
   t,
   customerLocation,
-  locating,
-  useMyLocation,
-  locationMessage,
-  setCustomerLocation,
   openBusiness
 }) {
   return (
@@ -1213,13 +1208,12 @@ function Business({
         </div>
       </section>
 
-      {/* Single Unified Map: Shows nearby shops + Shortest route without duplicate map or pointer jumping */}
+      {/* Single clean shop navigation map */}
       {business.latitude != null && business.longitude != null && (
         <SingleShopRouteMap
           business={business}
           businesses={businesses}
           customerLocation={customerLocation}
-          onBack={onBack}
           t={t}
           openBusiness={openBusiness}
         />
@@ -1256,7 +1250,7 @@ function Business({
         <section className="service-detail-panel panel">
           <div className="section-head">
             <div>
-              <span className="eyebrow">{t.servicesCategory.toUpperCase()}</span>
+              <span className="eyebrow">{t.catServices.toUpperCase()}</span>
               <h2>{t.serviceCoverage}</h2>
             </div>
             <MapPin size={18} />
@@ -1272,7 +1266,7 @@ function Business({
             </div>
             <div>
               <small>{t.visitCharge}</small>
-              <b>₹{Number(business.visit_charge || 0).toLocaleString('en-IN')}</b>
+              <b>{Number(business.visit_charge) > 0 ? `₹${Number(business.visit_charge).toLocaleString('en-IN')}` : t.contactForPrice}</b>
             </div>
             <div>
               <small>{t.availability}</small>
@@ -2008,10 +2002,10 @@ function AddItem({ api, businessId, refresh, t }) {
 
   return (
     <div className="inline-form">
-      <input placeholder="Item/service" value={name} onChange={e => setName(e.target.value)} />
-      <input placeholder="₹ price" type="number" value={price} onChange={e => setPrice(e.target.value)} />
+      <input placeholder="Item / service name" value={name} onChange={e => setName(e.target.value)} />
+      <input placeholder={t.priceOptionalPlaceholder} type="number" value={price} onChange={e => setPrice(e.target.value)} />
       <input
-        placeholder="Items in stock"
+        placeholder="Stock (optional)"
         type="number"
         min="0"
         value={quantity}
@@ -2029,8 +2023,8 @@ function AddItem({ api, businessId, refresh, t }) {
             body: JSON.stringify({
               business_id: businessId,
               name,
-              price: Number(price),
-              quantity: Number(quantity) || 0,
+              price: price ? Number(price) : null,
+              quantity: quantity ? Number(quantity) : 10,
               type
             })
           });
@@ -2061,7 +2055,7 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
     password: '',
     owner_name: '',
     business_name: '',
-    category: 'Grocery',
+    category: 'Daily Needs & Kirana',
     phone: '',
     address: '',
     description: '',
