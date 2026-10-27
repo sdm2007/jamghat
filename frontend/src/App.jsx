@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, TrendingUp, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route, Tv
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route, User, KeyRound, Check, XCircle
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
@@ -34,7 +34,7 @@ const i18n = {
     closesAt: 'Closes',
     login: 'Business login',
     register: 'List your shop',
-    catalog: 'Catalog & pricing',
+    catalog: 'Catalog & products',
     hours: 'Opening hours',
     weeklyHours: 'Weekly hours',
     dashboard: 'Business dashboard',
@@ -101,13 +101,14 @@ const i18n = {
     fromPrice: 'From ₹{p}',
     contactForPrice: 'Contact for price',
     marketPriceRange: 'Market price range: ₹{min}–₹{max} ({count} listings)',
-    notEnoughListings: 'Price available on contact',
     checkWithShop: 'Check availability with shop',
     shopPhotos: 'Shop photos',
     noPhotosYet: 'No photos yet.',
     overview: 'Overview',
     inventory: 'Inventory & Items',
     demandTips: 'Demand tips',
+    myAccount: 'My account',
+    photosTab: 'Photos',
     oneTimeChange: 'One-time change for today',
     save: 'Save',
     saveChanges: 'Save changes',
@@ -130,6 +131,8 @@ const i18n = {
     adminApprove: 'Approve',
     adminReject: 'Reject',
     adminStatus: 'Status',
+    forgotPassword: 'Forgot password?',
+    resetPassword: 'Reset Password',
     catAll: 'All',
     catElectronics: 'Electronics & Appliances',
     catGrocery: 'Daily Needs & Kirana',
@@ -152,7 +155,7 @@ const i18n = {
     closesAt: 'बंद होने का समय',
     login: 'दुकानदार लॉग इन',
     register: 'अपनी दुकान जोड़ें',
-    catalog: 'कैटलॉग और भाव',
+    catalog: 'कैटलॉग और सामान',
     hours: 'खुलने का समय',
     weeklyHours: 'साप्ताहिक समय',
     dashboard: 'दुकानदार डैशबोर्ड',
@@ -219,13 +222,14 @@ const i18n = {
     fromPrice: 'न्यूनतम ₹{p}',
     contactForPrice: 'भाव के लिए संपर्क करें',
     marketPriceRange: 'बाज़ार भाव दायरा: ₹{min}–₹{max} ({count} दुकानें)',
-    notEnoughListings: 'संपर्क करने पर भाव उपलब्ध',
     checkWithShop: 'दुकान से उपलब्धता की पुष्टि करें',
     shopPhotos: 'दुकान की तस्वीरें',
     noPhotosYet: 'अभी कोई तस्वीर नहीं है।',
     overview: 'विवरण',
     inventory: 'स्टॉक व सामान',
     demandTips: 'मांग के सुझाव',
+    myAccount: 'मेरा खाता',
+    photosTab: 'तस्वीरें',
     oneTimeChange: 'केवल आज के लिए बदलाव',
     save: 'सेव करें',
     saveChanges: 'बदलाव सेव करें',
@@ -248,6 +252,8 @@ const i18n = {
     adminApprove: 'मंजूरी दें',
     adminReject: 'अस्वीकार करें',
     adminStatus: 'स्थिति',
+    forgotPassword: 'पासवर्ड भूल गए?',
+    resetPassword: 'पासवर्ड बदलें',
     catAll: 'सब',
     catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
     catGrocery: 'किराना व दैनिक सामान',
@@ -346,6 +352,7 @@ function App() {
   });
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
+  const [resetToken, setResetToken] = useState(null);
   const t = i18n[lang] || i18n.en;
 
   useEffect(() => {
@@ -369,15 +376,26 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verificationToken = params.get('verify_email');
-    if (!verificationToken) return;
-    api(`/auth/verify-email?token=${encodeURIComponent(verificationToken)}`)
-      .then(x => setNotice(x.message || 'Email verified. You can now sign in.'))
-      .catch(e => setNotice(e.message))
-      .finally(() => {
-        params.delete('verify_email');
-        const qs = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
-      });
+    const tokenForReset = params.get('reset_token');
+
+    if (verificationToken) {
+      api(`/auth/verify-email?token=${encodeURIComponent(verificationToken)}`)
+        .then(x => setNotice(x.message || 'Email verified. You can now sign in.'))
+        .catch(e => setNotice(e.message))
+        .finally(() => {
+          params.delete('verify_email');
+          const qs = params.toString();
+          window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+        });
+    }
+
+    if (tokenForReset) {
+      setResetToken(tokenForReset);
+      setAuthMode('reset-password');
+      params.delete('reset_token');
+      const qs = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+    }
   }, []);
 
   useEffect(() => {
@@ -560,14 +578,12 @@ function App() {
             onBack={() => setPage('home')}
             t={t}
             customerLocation={customerLocation}
-            locating={locating}
-            useMyLocation={useMyLocation}
-            locationMessage={locationMessage}
-            setCustomerLocation={chooseCustomerLocation}
             openBusiness={openBusiness}
           />
         )}
-        {page === 'dashboard' && user?.role === 'BUSINESS_OWNER' && <BusinessDashboard api={api} logout={logout} t={t} />}
+        {page === 'dashboard' && user?.role === 'BUSINESS_OWNER' && (
+          <BusinessDashboard api={api} logout={logout} t={t} user={user} setUser={setUser} />
+        )}
         {page === 'admin' && user?.role === 'ADMIN' && <AdminDashboard api={api} logout={logout} t={t} />}
       </main>
       <nav className="bottom-nav">
@@ -600,9 +616,11 @@ function App() {
       {authMode && (
         <AuthModal
           initialMode={authMode}
-          onClose={() => setAuthMode(null)}
+          resetToken={resetToken}
+          onClose={() => { setAuthMode(null); setResetToken(null); }}
           onLogin={login}
           t={t}
+          api={api}
           onResend={async email => api('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) })}
           onRegister={async d => {
             const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) });
@@ -1208,7 +1226,6 @@ function Business({
         </div>
       </section>
 
-      {/* Single clean shop navigation map */}
       {business.latitude != null && business.longitude != null && (
         <SingleShopRouteMap
           business={business}
@@ -1395,7 +1412,7 @@ function ProductSearchListings({ query, businesses, openBusiness, t }) {
   );
 }
 
-function BusinessDashboard({ api, t, logout }) {
+function BusinessDashboard({ api, t, logout, user, setUser }) {
   const [biz, setBiz] = useState(null);
   const [demand, setDemand] = useState(null);
   const [tab, setTab] = useState('overview');
@@ -1407,23 +1424,38 @@ function BusinessDashboard({ api, t, logout }) {
   const [msg, setMsg] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    (async () => {
+  // Shopkeeper Photo Upload
+  const [preview, setPreview] = useState('');
+  const [caption, setCaption] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
+
+  // Shopkeeper Account Details Form
+  const [accountName, setAccountName] = useState(user?.name || '');
+  const [accountEmail, setAccountEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [accountBusy, setAccountBusy] = useState(false);
+
+  async function loadData() {
+    try {
+      const b = await api('/business/me');
+      setBiz(b);
+      setForm(b);
+      setHours(b.hours || []);
       try {
-        const b = await api('/business/me');
-        setBiz(b);
-        setForm(b);
-        setHours(b.hours || []);
-        try {
-          const special = await api(`/business/${b.id}/special-hours/today`);
-          setClosedToday(!!special.is_closed);
-          setSpecialNote(special.note || '');
-        } catch {}
-        setDemand(await api('/demand').catch(() => []));
-      } catch (e) {
-        setMsg(e.message);
-      }
-    })();
+        const special = await api(`/business/${b.id}/special-hours/today`);
+        setClosedToday(!!special.is_closed);
+        setSpecialNote(special.note || '');
+      } catch {}
+      setDemand(await api('/demand').catch(() => []));
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   if (!biz) return <Loading text={t.loadingInfo} />;
@@ -1457,6 +1489,62 @@ function BusinessDashboard({ api, t, logout }) {
     setMsg(`${i.name} stock updated.`);
   }
 
+  async function handleAccountUpdate(e) {
+    e.preventDefault();
+    setAccountBusy(true);
+    setMsg('');
+    try {
+      const res = await api('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: accountName,
+          email: accountEmail,
+          current_password: currentPassword || undefined,
+          new_password: newPassword || undefined
+        })
+      });
+      setUser(res.user);
+      setCurrentPassword('');
+      setNewPassword('');
+      setMsg('Account details updated successfully.');
+    } catch (err) {
+      setMsg(err.message || 'Failed to update account details.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function handlePhotoChoose(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      setPreview(await compressImage(f));
+    } catch {
+      setMsg('Could not read image file.');
+    }
+  }
+
+  async function handlePhotoUpload() {
+    if (!preview) return;
+    setUploadingPhoto(true);
+    setMsg('');
+    try {
+      await api(`/businesses/${biz.id}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({ image_data: preview, caption })
+      });
+      setPreview('');
+      setCaption('');
+      if (photoInputRef.current) photoInputRef.current.value = '';
+      setMsg('Photo submitted! It will appear publicly once approved by the administrator.');
+      await loadData();
+    } catch (err) {
+      setMsg(err.message || 'Failed to upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function handleDeleteProfile() {
     if (!window.confirm(t.deleteAccountConfirm)) return;
     setDeleting(true);
@@ -1478,8 +1566,13 @@ function BusinessDashboard({ api, t, logout }) {
           <h1>{biz.name}</h1>
           <p>
             {biz.profile_completeness}
-            {t.profileComplete}
+            {t.profileComplete} · Status: <strong>{biz.verification_status}</strong>
           </p>
+          {biz.verification_status === 'PENDING' && (
+            <small style={{ color: 'var(--brand)', display: 'block', marginTop: '4px' }}>
+              Your listing is awaiting review and approval by the administrator before it goes live to customers.
+            </small>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button className="danger-outline" onClick={handleDeleteProfile} disabled={deleting}>
@@ -1496,6 +1589,8 @@ function BusinessDashboard({ api, t, logout }) {
         {[
           ['overview', t.overview],
           ['inventory', t.inventory],
+          ['photos', t.photosTab],
+          ['account', t.myAccount],
           ['hours', t.hours],
           ['demand', t.demandTips]
         ].map(x => (
@@ -1511,7 +1606,7 @@ function BusinessDashboard({ api, t, logout }) {
           <div className="metric-grid">
             <Metric
               label="Listing"
-              value={biz.verification_status === 'PENDING' ? 'Pending' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'}
+              value={biz.verification_status === 'PENDING' ? 'Pending Approval' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'}
             />
             <Metric label={t.itemsCount} value={biz.items.length} />
             <Metric label="Status" value={biz.is_open ? t.open : t.closed} />
@@ -1556,6 +1651,89 @@ function BusinessDashboard({ api, t, logout }) {
             )}
           </section>
         </>
+      )}
+
+      {tab === 'photos' && (
+        <section className="panel photo-panel">
+          <div className="section-head">
+            <div>
+              <h2><Camera size={18} /> {t.shopPhotos}</h2>
+              <small>Upload photos of your shop, counters, and products. Admin review is required before they go live.</small>
+            </div>
+          </div>
+          <div className="photo-uploader">
+            <input
+              ref={photoInputRef}
+              className="photo-file-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChoose}
+            />
+            <div className="inline-form photo-actions">
+              <button type="button" className="secondary small" onClick={() => photoInputRef.current?.click()}>
+                <Camera size={15} />
+                Choose photo
+              </button>
+              <button type="button" className="primary small" disabled={!preview || uploadingPhoto} onClick={handlePhotoUpload}>
+                {uploadingPhoto ? 'Uploading…' : 'Submit photo for approval'}
+              </button>
+            </div>
+            <input
+              className="caption-input"
+              placeholder="Photo caption (e.g., Front entrance, New stock)"
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              maxLength={180}
+            />
+          </div>
+          <div className="photo-grid">
+            {biz.photos?.map(p => (
+              <figure className="shop-photo" key={p.id}>
+                <img src={p.image_url} alt={p.caption || 'Shop photo'} />
+                <figcaption>
+                  <p>{p.caption || 'Shop photo'}</p>
+                  <span style={{ fontSize: '10px', color: p.status === 'VISIBLE' ? 'var(--green)' : 'var(--brand)' }}>
+                    {p.status === 'VISIBLE' ? 'Approved (Live)' : 'Pending Review'}
+                  </span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === 'account' && (
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2><User size={18} /> {t.myAccount}</h2>
+              <small>Edit your personal login email, full name, or update your password.</small>
+            </div>
+          </div>
+          <form onSubmit={handleAccountUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '420px', marginTop: '14px' }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+              Full Name
+              <input value={accountName} onChange={e => setAccountName(e.target.value)} required />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+              Email address
+              <input type="email" value={accountEmail} onChange={e => setAccountEmail(e.target.value)} required />
+            </label>
+            <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Change Password (leave blank if keeping current password)</span>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+              Current Password
+              <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+              New Password (min 8 chars)
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} />
+            </label>
+            <button className="primary" disabled={accountBusy} style={{ alignSelf: 'flex-start', marginTop: '6px' }}>
+              <Save size={15} /> {accountBusy ? 'Saving…' : t.saveChanges}
+            </button>
+          </form>
+        </section>
       )}
 
       {tab === 'inventory' && (
@@ -1694,6 +1872,7 @@ function BusinessDashboard({ api, t, logout }) {
 function AdminDashboard({ api, logout, t }) {
   const [data, setData] = useState(null);
   const [shops, setShops] = useState([]);
+  const [pendingPhotos, setPendingPhotos] = useState([]);
   const [tab, setTab] = useState('registrations');
   const [msg, setMsg] = useState('');
 
@@ -1701,6 +1880,7 @@ function AdminDashboard({ api, logout, t }) {
     try {
       setData(await api('/admin/overview'));
       setShops(await api('/admin/businesses'));
+      setPendingPhotos(await api('/admin/pending-photos'));
     } catch (e) {
       setMsg(e.message);
     }
@@ -1714,6 +1894,16 @@ function AdminDashboard({ api, logout, t }) {
     try {
       await api(`/admin/businesses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
       await load();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }
+
+  async function setPhotoStatus(photoId, status) {
+    try {
+      await api(`/admin/photos/${photoId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await load();
+      setMsg(`Photo marked as ${status}.`);
     } catch (e) {
       setMsg(e.message);
     }
@@ -1739,7 +1929,7 @@ function AdminDashboard({ api, logout, t }) {
       <div className="dashboard-head">
         <div>
           <span className="eyebrow">JAMGHAT ADMIN</span>
-          <h1>Registrations & photos</h1>
+          <h1>Registrations & Approvals</h1>
         </div>
         <button className="danger-outline" onClick={logout}>
           <LogOut size={16} />
@@ -1748,13 +1938,14 @@ function AdminDashboard({ api, logout, t }) {
       </div>
       <div className="metric-grid">
         <Metric label="Live shops" value={data.liveBusinesses} />
-        <Metric label="Pending" value={data.pendingRegistrations} />
-        <Metric label="Photos" value={data.photos} />
+        <Metric label="Pending Approvals" value={data.pendingRegistrations} />
+        <Metric label="Pending Photos" value={data.pendingPhotos} />
       </div>
       {msg && <div className="notice">{msg}</div>}
       <div className="tabs">
         {[
           ['registrations', t.adminShops],
+          ['pending-photos', 'Pending Photos'],
           ['photos', t.shopPhotos]
         ].map(x => (
           <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>
@@ -1771,18 +1962,21 @@ function AdminDashboard({ api, logout, t }) {
                 <div>
                   <b>{s.name}</b>
                   <small>
-                    {s.category} · {s.phone || 'no phone'} · {t.adminStatus}: {s.verification_status}
+                    {s.category} · {s.phone || 'no phone'} · {t.adminStatus}:{' '}
+                    <strong style={{ color: s.verification_status === 'VERIFIED' ? 'var(--green)' : 'var(--brand)' }}>
+                      {s.verification_status}
+                    </strong>
                   </small>
                 </div>
                 <div className="inline-form">
                   {s.verification_status !== 'VERIFIED' && (
                     <button className="primary small" onClick={() => setStatus(s.id, 'VERIFIED')}>
-                      {t.adminApprove}
+                      <Check size={14} /> {t.adminApprove}
                     </button>
                   )}
-                  {s.verification_status === 'PENDING' && (
+                  {s.verification_status === 'VERIFIED' && (
                     <button className="secondary small" onClick={() => setStatus(s.id, 'REJECTED')}>
-                      {t.adminReject}
+                      Unpublish
                     </button>
                   )}
                   <button
@@ -1800,6 +1994,36 @@ function AdminDashboard({ api, logout, t }) {
           )}
         </section>
       )}
+
+      {tab === 'pending-photos' && (
+        <section className="panel">
+          <h2>Shopkeeper Submitted Photos for Approval</h2>
+          {pendingPhotos.length ? (
+            <div className="photo-grid" style={{ marginTop: '14px' }}>
+              {pendingPhotos.map(p => (
+                <figure className="shop-photo" key={p.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <img src={p.image_url} alt={p.caption || 'Pending review'} style={{ height: '180px', objectFit: 'cover' }} />
+                  <figcaption style={{ padding: '8px' }}>
+                    <b>{p.business_name}</b>
+                    <p style={{ margin: '3px 0', fontSize: '11px' }}>{p.caption || 'No caption'}</p>
+                    <div className="inline-form" style={{ marginTop: '6px' }}>
+                      <button className="primary small" onClick={() => setPhotoStatus(p.id, 'VISIBLE')}>
+                        <Check size={13} /> Approve
+                      </button>
+                      <button className="danger-outline small" onClick={() => setPhotoStatus(p.id, 'REJECTED')}>
+                        <XCircle size={13} /> Reject
+                      </button>
+                    </div>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <Empty text="No pending photos to review." />
+          )}
+        </section>
+      )}
+
       {tab === 'photos' && <AdminPhotos api={api} shops={shops} t={t} />}
     </div>
   );
@@ -1841,7 +2065,7 @@ function AdminPhotos({ api, shops, t }) {
       setPreview('');
       setCaption('');
       if (inputRef.current) inputRef.current.value = '';
-      setMsg('Photo uploaded.');
+      setMsg('Photo uploaded directly by Admin.');
       await loadPhotos(shopId);
     } catch (e) {
       setMsg(e.message);
@@ -2044,10 +2268,11 @@ function AddItem({ api, businessId, refresh, t }) {
   );
 }
 
-function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onResend, t }) {
+function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegister, onResend, t, api }) {
   const [mode, setMode] = useState(initialMode);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
   const [f, setF] = useState({
@@ -2062,6 +2287,8 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
     latitude: '',
     longitude: ''
   });
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
 
   const set = k => e => setF({ ...f, [k]: e.target.value });
 
@@ -2086,12 +2313,30 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
   async function submit(e) {
     e.preventDefault();
     setErr('');
+    setMsg('');
     setResendMessage('');
     setNeedsVerification(false);
     setBusy(true);
+
     try {
-      if (mode === 'login') await onLogin(f.email, f.password);
-      else await onRegister(f);
+      if (mode === 'login') {
+        await onLogin(f.email, f.password);
+      } else if (mode === 'register') {
+        await onRegister(f);
+      } else if (mode === 'forgot') {
+        const res = await api('/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email: forgotEmail })
+        });
+        setMsg(res.message);
+      } else if (mode === 'reset-password') {
+        const res = await api('/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({ token: resetToken, password: newPassword })
+        });
+        setMsg(res.message);
+        setTimeout(() => setMode('login'), 2000);
+      }
     } catch (x) {
       setErr(x.message);
       setNeedsVerification(x.code === 'EMAIL_NOT_VERIFIED');
@@ -2121,10 +2366,28 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
           <X />
         </button>
         <span className="eyebrow">JAMGHAT</span>
-        <h2>{mode === 'login' ? t.login : t.register}</h2>
-        <p>{mode === 'login' ? 'Sign in to update your shop.' : 'Free for shopkeepers.'}</p>
+        <h2>
+          {mode === 'login'
+            ? t.login
+            : mode === 'register'
+            ? t.register
+            : mode === 'forgot'
+            ? t.forgotPassword
+            : t.resetPassword}
+        </h2>
+        <p>
+          {mode === 'login'
+            ? 'Sign in to manage your shop and inventory.'
+            : mode === 'register'
+            ? 'Free registration for local shopkeepers.'
+            : mode === 'forgot'
+            ? 'Enter your registered email to receive a password reset link.'
+            : 'Enter your new password below.'}
+        </p>
         {err && <div className="error-banner">{err}</div>}
+        {msg && <div className="notice">{msg}</div>}
         {resendMessage && <div className="notice">{resendMessage}</div>}
+
         {mode === 'register' && (
           <>
             <input placeholder="Your name" value={f.owner_name} onChange={set('owner_name')} required />
@@ -2146,30 +2409,84 @@ function AuthModal({ initialMode = 'login', onClose, onLogin, onRegister, onRese
               <LocateFixed size={15} />{' '}
               {f.latitude !== '' ? `Location saved (${f.latitude}, ${f.longitude})` : t.useMyLocation}
             </button>
+            <input type="email" placeholder="Email" value={f.email} onChange={set('email')} required />
+            <input
+              type="password"
+              placeholder="Password (min 8 characters)"
+              value={f.password}
+              onChange={set('password')}
+              minLength={8}
+              required
+            />
           </>
         )}
-        <input type="email" placeholder="Email" value={f.email} onChange={set('email')} required />
-        <input
-          type="password"
-          placeholder="Password"
-          value={f.password}
-          onChange={set('password')}
-          minLength={mode === 'register' ? 8 : undefined}
-          required
-        />
+
+        {mode === 'login' && (
+          <>
+            <input type="email" placeholder="Email" value={f.email} onChange={set('email')} required />
+            <input
+              type="password"
+              placeholder="Password"
+              value={f.password}
+              onChange={set('password')}
+              required
+            />
+            <button
+              type="button"
+              className="link-btn"
+              style={{ alignSelf: 'flex-start', padding: '0 0 4px', fontSize: '11px' }}
+              onClick={() => { setErr(''); setMsg(''); setMode('forgot'); }}
+            >
+              {t.forgotPassword}
+            </button>
+          </>
+        )}
+
+        {mode === 'forgot' && (
+          <input
+            type="email"
+            placeholder="Your registered email address"
+            value={forgotEmail}
+            onChange={e => setForgotEmail(e.target.value)}
+            required
+          />
+        )}
+
+        {mode === 'reset-password' && (
+          <input
+            type="password"
+            placeholder="New password (min 8 characters)"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            minLength={8}
+            required
+          />
+        )}
+
         <button className="primary full" disabled={busy}>
-          {busy ? t.locating : mode === 'login' ? 'Sign in' : 'Register my shop'}
+          {busy
+            ? t.locating
+            : mode === 'login'
+            ? 'Sign in'
+            : mode === 'register'
+            ? 'Register my shop'
+            : mode === 'forgot'
+            ? 'Send reset link'
+            : 'Save new password'}
         </button>
+
         {mode === 'login' && needsVerification && (
           <button type="button" className="link-btn" disabled={busy || !f.email} onClick={resend}>
             Resend verification email
           </button>
         )}
+
         <button
           type="button"
           className="link-btn"
           onClick={() => {
             setErr('');
+            setMsg('');
             setResendMessage('');
             setNeedsVerification(false);
             setMode(mode === 'login' ? 'register' : 'login');

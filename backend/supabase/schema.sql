@@ -60,3 +60,19 @@ CREATE TABLE IF NOT EXISTS demand_insights (
 );
 
 ALTER TABLE business_photos ADD COLUMN IF NOT EXISTS storage_path TEXT;
+
+-- Password Reset Tokens
+CREATE TABLE IF NOT EXISTS password_resets (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS password_resets_expiry_idx ON password_resets(expires_at);
+
+-- Change default status for businesses to PENDING approval
+ALTER TABLE businesses ALTER COLUMN verification_status SET DEFAULT 'PENDING';
+ALTER TABLE businesses ALTER COLUMN verified SET DEFAULT 0;
+
+-- Change default status for uploaded photos to PENDING approval
+ALTER TABLE business_photos ALTER COLUMN status SET DEFAULT 'PENDING';

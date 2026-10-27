@@ -165,12 +165,33 @@ async function sendVerificationEmail(email, name, rawToken) {
   });
 }
 
+async function sendResetPasswordEmail(email, name, rawToken) {
+  const link = `${PUBLIC_APP_URL}/?reset_token=${encodeURIComponent(rawToken)}`;
+  await mailTransport().sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject: 'Reset your Jamghat password',
+    text: `Hello ${name},\n\nClick the link below to reset your Jamghat account password:\n\n${link}\n\nThis link expires in 1 hour. If you did not request this, please ignore this email.`,
+    html: `<p>Hello ${escapeHtml(name)},</p><p>Click the link below to reset your Jamghat password:</p><p><a href="${link}">Reset Password</a></p><p>This link expires in 1 hour.</p>`
+  });
+}
+
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 async function init() {
   const schemaPath = path.join(__dirname, 'supabase', 'schema.sql');
-  const schema = fs.readFileSync(schemaPath, 'utf8');
-  await db.query(schema);
+  if (fs.existsSync(schemaPath)) {
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+    await db.query(schema);
+  }
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
   await ensurePhotoBucket();
   await ensureAdmin();
 }
@@ -196,7 +217,6 @@ async function currentHours(businessId, date = new Date()) {
   const special = await get(`SELECT * FROM special_hours WHERE business_id=? AND date=?`, [businessId, todayKey]);
   if (special?.is_closed) return { open: false, closesAt: null, nextOpen: null, label: `Closed today${special.note ? ` · ${special.note}` : ''}`, closedToday: true, specialNote: special.note || '' };
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const day = dayName(date);
   const current = mins(timeInIndia(date));
   const row = await get(`SELECT * FROM business_hours WHERE business_id=? AND day=?`, [businessId, day]);
@@ -218,7 +238,7 @@ let marketPriceCache = null, marketPriceCacheAt = 0;
 
 async function getMarketPriceIndex() {
   if (marketPriceCache && Date.now() - marketPriceCacheAt < 20000) return marketPriceCache;
-  const priced = await all(`SELECT i.name,i.price,i.price_min,i.price_max,i.type FROM items i JOIN businesses b ON b.id=i.business_id WHERE COALESCE(i.price,i.price_min,i.price_max) IS NOT NULL AND COALESCE(b.verification_status,'UNCLAIMED') NOT IN ('PENDING','REJECTED')`);
+  const priced = await all(`SELECT i.name,i.price,i.price_min,i.price_max,i.type FROM items i JOIN businesses b ON b.id=i.business_id WHERE COALESCE(i.price,i.price_min,i.price_max) IS NOT NULL AND b.verification_status='VERIFIED'`);
   const market = new Map();
   for (const p of priced) {
     const nameKey = comparableItemName(p.name);
@@ -264,7 +284,9 @@ async function enrichBusiness(b) {
 
 async function getBusiness(id) { const b = await get(`SELECT * FROM businesses WHERE id=?`, [id]); return b ? enrichBusiness(b) : null; }
 async function getBusinessPhotos(id) { return all(`SELECT id,business_id,image_url,caption,created_at FROM business_photos WHERE business_id=? AND status='VISIBLE' ORDER BY created_at DESC`, [id]); }
-const PUBLIC_FILTER = `COALESCE(verification_status,'UNCLAIMED') <> 'REJECTED'`;
+
+// PUBLIC PORTAL: Only approved (VERIFIED) businesses show to public customers
+const PUBLIC_FILTER = `verification_status = 'VERIFIED'`;
 
 function rateLimit(max, windowMs) {
   const hits = new Map();
@@ -279,7 +301,12 @@ function rateLimit(max, windowMs) {
 }
 
 function widen(q, cat) {
-  const synonyms = { barber: ['hair', 'haircut', 'salon'], mechanic: ['bike', 'puncture', 'repair'], books: ['book', 'books', 'ncert'], stationery: ['notebook', 'pen'], electrician: ['electrical', 'electric'], tailor: ['stitching', 'alteration'] };
+  const synonyms = {
+    barber: ['salon', 'hair', 'personal care'],
+    grocery: ['kirana', 'daily', 'needs', 'milk', 'vegetables'],
+    electronics: ['mobile', 'tv', 'fridge', 'ac', 'repair'],
+    cloth: ['fashion', 'tailor', 'garments']
+  };
   return Object.entries(synonyms).some(([k, vals]) => q.includes(k) && vals.some(v => String(cat || '').toLowerCase().includes(v)));
 }
 
@@ -297,7 +324,7 @@ async function auth(req, res, next) {
 
 function requireRole(...roles) { return (req, res, next) => roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Not authorized' }); }
 async function ownerFor(req, businessId) {
-  const owner = await get(`SELECT * FROM business_owners WHERE business_id=? AND user_id=? AND claim_status='VERIFIED'`, [businessId, req.user.id]);
+  const owner = await get(`SELECT * FROM business_owners WHERE business_id=? AND user_id=?`, [businessId, req.user.id]);
   return !!owner;
 }
 
@@ -329,7 +356,7 @@ app.get('/api/businesses', async (req, res) => {
 app.get('/api/businesses/:id', async (req, res) => {
   try {
     const b = await getBusiness(req.params.id);
-    if (!b || ['PENDING', 'REJECTED'].includes(b.verification_status)) return res.status(404).json({ error: 'Business not found' });
+    if (!b || b.verification_status !== 'VERIFIED') return res.status(404).json({ error: 'Business not found or pending approval' });
     res.json({ ...b, photos: await getBusinessPhotos(b.id), hours: await all(`SELECT * FROM business_hours WHERE business_id=? ORDER BY CASE day WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 ELSE 7 END`, [b.id]) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -349,7 +376,7 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
     const { email, password } = req.body || {};
     const u = await get(`SELECT * FROM users WHERE lower(email)=lower(?)`, [String(email || '').trim()]);
     if (!u || !verifyPassword(String(password || ''), u.password_hash)) return res.status(401).json({ error: 'Invalid email or password' });
-    if (u.role !== 'ADMIN' && !u.email_verified) return res.status(403).json({ error: 'Please verify your email before signing in. Check your inbox or resend the verification email.', code: 'EMAIL_NOT_VERIFIED' });
+    if (u.role !== 'ADMIN' && !u.email_verified) return res.status(403).json({ error: 'Please verify your email before signing in.', code: 'EMAIL_NOT_VERIFIED' });
     const t = token();
     await run(`INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)`, [t, u.id, new Date(Date.now() + 7 * 864e5).toISOString()]);
     res.cookie('jg_session', t, { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/', maxAge: 7 * 864e5 });
@@ -365,15 +392,90 @@ app.post('/api/auth/logout', auth, async (req, res) => {
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ user: req.user }));
 
+// Shopkeeper Account Details Update (Name, Email, Password)
+app.patch('/api/auth/me', auth, async (req, res) => {
+  try {
+    const { name, email, current_password, new_password } = req.body || {};
+    const u = await get('SELECT * FROM users WHERE id=?', [req.user.id]);
+    if (!u) return res.status(404).json({ error: 'User not found' });
+
+    let updatedPasswordHash = u.password_hash;
+    if (new_password) {
+      if (!current_password || !verifyPassword(current_password, u.password_hash)) {
+        return res.status(400).json({ error: 'Incorrect current password.' });
+      }
+      if (String(new_password).length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+      }
+      updatedPasswordHash = hashPassword(new_password);
+    }
+
+    const nextName = String(name || u.name).trim().slice(0, 80);
+    const nextEmail = String(email || u.email).trim().toLowerCase();
+
+    if (nextEmail !== u.email) {
+      const existing = await get('SELECT id FROM users WHERE lower(email)=? AND id!=?', [nextEmail, u.id]);
+      if (existing) return res.status(400).json({ error: 'This email is already in use by another account.' });
+    }
+
+    await run('UPDATE users SET name=?, email=?, password_hash=? WHERE id=?', [nextName, nextEmail, updatedPasswordHash, u.id]);
+    res.json({ ok: true, user: { id: u.id, name: nextName, email: nextEmail, role: u.role } });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not update profile' });
+  }
+});
+
+// Forgot Password: Request reset link
+app.post('/api/auth/forgot-password', rateLimit(5, 60 * 60 * 1000), async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'Enter your registered email address.' });
+    const u = await get('SELECT id, name, email FROM users WHERE lower(email)=?', [email]);
+    if (u) {
+      const raw = verificationToken();
+      await run('DELETE FROM password_resets WHERE user_id=?', [u.id]);
+      await run('INSERT INTO password_resets(user_id, token_hash, expires_at) VALUES(?,?,?)', [
+        u.id,
+        tokenDigest(raw),
+        new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      ]);
+      await sendResetPasswordEmail(u.email, u.name, raw);
+    }
+    res.json({ ok: true, message: 'If an account matches that email, a password reset link has been sent.' });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not send reset password email.' });
+  }
+});
+
+// Reset Password: Apply new password with token
+app.post('/api/auth/reset-password', rateLimit(5, 60 * 60 * 1000), async (req, res) => {
+  try {
+    const { token: raw, password } = req.body || {};
+    if (!raw || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Invalid token or password is under 8 characters.' });
+    }
+    const row = await get('SELECT user_id, expires_at FROM password_resets WHERE token_hash=?', [tokenDigest(raw)]);
+    if (!row) return res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
+    if (new Date(row.expires_at).getTime() < Date.now()) {
+      await run('DELETE FROM password_resets WHERE token_hash=?', [tokenDigest(raw)]);
+      return res.status(400).json({ error: 'This reset link has expired. Request a new one.' });
+    }
+    await run('UPDATE users SET password_hash=? WHERE id=?', [hashPassword(password), row.user_id]);
+    await run('DELETE FROM password_resets WHERE user_id=?', [row.user_id]);
+    await run('DELETE FROM sessions WHERE user_id=?', [row.user_id]); // logout all prior sessions
+    res.json({ ok: true, message: 'Your password has been reset. You can now sign in with your new password.' });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not reset password.' });
+  }
+});
+
 app.delete('/api/auth/me', auth, async (req, res) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-
     const ownerRow = await client.query('SELECT business_id FROM business_owners WHERE user_id = $1', [req.user.id]);
     if (ownerRow.rows.length > 0) {
       const bizId = ownerRow.rows[0].business_id;
-
       const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
       for (const p of photos.rows) {
         if (p.storage_path) {
@@ -382,24 +484,16 @@ app.delete('/api/auth/me', auth, async (req, res) => {
               method: 'DELETE',
               body: JSON.stringify({ prefixes: [p.storage_path] })
             });
-          } catch (err) {
-            console.warn('Storage photo deletion warning:', err.message);
-          }
+          } catch (err) {}
         }
       }
-
       await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
     }
-
     await client.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
-    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.id]);
     await client.query('DELETE FROM users WHERE id = $1', [req.user.id]);
-
     await client.query('COMMIT');
-    marketPriceCache = null;
-
     res.clearCookie('jg_session', { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/' });
-    res.json({ ok: true, message: 'Account and associated business data deleted successfully.' });
+    res.json({ ok: true, message: 'Account deleted.' });
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     res.status(500).json({ error: e.message || 'Could not delete profile.' });
@@ -411,52 +505,51 @@ app.delete('/api/auth/me', auth, async (req, res) => {
 app.get('/api/auth/verify-email', async (req, res) => {
   try {
     const raw = String(req.query.token || '');
-    if (!/^[a-f0-9]{64}$/i.test(raw)) return res.status(400).json({ error: 'This verification link is invalid. Request a new email.' });
+    if (!/^[a-f0-9]{64}$/i.test(raw)) return res.status(400).json({ error: 'This verification link is invalid.' });
     const row = await get('SELECT user_id,expires_at FROM email_verifications WHERE token_hash=?', [tokenDigest(raw)]);
-    if (!row) return res.status(400).json({ error: 'This verification link is invalid or has already been used. Request a new email.' });
+    if (!row) return res.status(400).json({ error: 'Invalid or already used verification link.' });
     if (new Date(row.expires_at).getTime() < Date.now()) {
       await run('DELETE FROM email_verifications WHERE token_hash=?', [tokenDigest(raw)]);
-      return res.status(400).json({ error: 'This verification link has expired. Please request a new one.' });
+      return res.status(400).json({ error: 'Verification link expired.' });
     }
     await run('UPDATE users SET email_verified=TRUE,email_verified_at=? WHERE id=?', [now(), row.user_id]);
     await run('DELETE FROM email_verifications WHERE user_id=?', [row.user_id]);
-    res.json({ ok: true, message: 'Email verified successfully. You can now sign in to Jamghat.' });
-  } catch (e) { res.status(500).json({ error: 'Could not verify email. Please try again.' }); }
+    res.json({ ok: true, message: 'Email verified successfully. You can now sign in.' });
+  } catch (e) { res.status(500).json({ error: 'Could not verify email.' }); }
 });
 
 const resendLimit = rateLimit(3, 60 * 60 * 1000);
 app.post('/api/auth/resend-verification', resendLimit, async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
     const u = await get('SELECT id,name,email,role,email_verified FROM users WHERE lower(email)=?', [email]);
-    if (!u || u.role === 'ADMIN' || u.email_verified) return res.json({ ok: true, message: 'If this account needs verification, an email will be sent shortly.' });
+    if (!u || u.role === 'ADMIN' || u.email_verified) return res.json({ ok: true, message: 'Verification email sent if eligible.' });
     const raw = verificationToken();
     await run('DELETE FROM email_verifications WHERE user_id=?', [u.id]);
     await run('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES(?,?,?,?)', [u.id, tokenDigest(raw), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]);
     await sendVerificationEmail(u.email, u.name, raw);
-    res.json({ ok: true, message: 'A new verification email has been sent. Check your inbox and spam folder.' });
+    res.json({ ok: true, message: 'A new verification email has been sent.' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Register: Starts as PENDING approval by admin!
 app.post('/api/business/register', registerLimit, async (req, res) => {
   try {
-    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet. Add SMTP details to backend environment variables.' });
-    if (IS_PROD && !PUBLIC_APP_URL.startsWith('https://')) return res.status(503).json({ error: 'Set PUBLIC_APP_URL to your public HTTPS website URL.' });
+    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet.' });
 
     const b = req.body || {};
     const clean = (v, n) => String(v ?? '').trim().slice(0, n);
     const ownerName = clean(b.owner_name, 80), email = clean(b.email, 120).toLowerCase(), password = String(b.password || '');
     const name = clean(b.business_name, 120), category = clean(b.category, 60), phone = clean(b.phone, 30), address = clean(b.address, 200), description = clean(b.description, 400);
 
-    if (!ownerName || !name || !category || !phone || !address) return res.status(400).json({ error: 'Your name, shop name, category, phone and address are required' });
+    if (!ownerName || !name || !category || !phone || !address) return res.status(400).json({ error: 'Name, shop name, category, phone, and address are required' });
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     if (await get('SELECT id FROM users WHERE lower(email)=?', [email])) return res.status(400).json({ error: 'This email is already registered.' });
 
     const lat = Number(b.latitude), lng = Number(b.longitude);
     const hasCoords = b.latitude !== '' && b.longitude !== '' && b.latitude != null && b.longitude != null && Number.isFinite(lat) && Number.isFinite(lng);
-    const homeVisit = category === 'Home Services' ? 1 : 0;
+    const homeVisit = category === 'Services & Repairs' ? 1 : 0;
 
     const client = await db.connect();
     let userId, businessId, rawToken;
@@ -465,7 +558,8 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
       const userResult = await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id', [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]);
       userId = userResult.rows[0].id;
 
-      const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 1, 'VERIFIED', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
+      // Notice verification_status is set to PENDING for admin approval!
+      const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
       businessId = bizResult.rows[0].id;
 
       await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
@@ -482,19 +576,22 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
     } finally {
       client.release();
     }
-    res.status(201).json({ ok: true, business_id: businessId, message: 'Registration saved. Please check your email for the verification link.' });
+    res.status(201).json({ ok: true, business_id: businessId, message: 'Registration submitted! Please verify your email. Once approved by the administrator, your shop will go live on Jamghat.' });
   } catch (e) {
-    res.status(500).json({ error: e.message.includes('Email verification') ? e.message : 'Registration could not be completed. Check SMTP credentials.' });
+    res.status(500).json({ error: e.message });
   }
 });
 
+// Shopkeeper: Fetch own business profile & photos (including pending ones)
 app.get('/api/business/me', auth, requireRole('BUSINESS_OWNER'), async (req, res) => {
   try {
     const own = await get(`SELECT business_id FROM business_owners WHERE user_id=?`, [req.user.id]);
     if (!own) return res.status(404).json({ error: 'No business found for this account' });
     const b = await getBusiness(own.business_id);
     const hours = await all(`SELECT * FROM business_hours WHERE business_id=? ORDER BY day`, [b.id]);
-    res.json({ ...b, photos: await getBusinessPhotos(b.id), hours });
+    // Allow owner to see all their photos (including pending)
+    const photos = await all(`SELECT id, business_id, image_url, caption, status, created_at FROM business_photos WHERE business_id=? ORDER BY created_at DESC`, [b.id]);
+    res.json({ ...b, photos, hours });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -574,33 +671,41 @@ app.get('/api/demand', auth, requireRole('BUSINESS_OWNER', 'ADMIN'), async (req,
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Admin: Overview
 app.get('/api/admin/overview', auth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const [total, pending, photos] = await Promise.all([get(`SELECT COUNT(*) c FROM businesses WHERE ${PUBLIC_FILTER}`), get(`SELECT COUNT(*) c FROM businesses WHERE verification_status='PENDING'`), get(`SELECT COUNT(*) c FROM business_photos`)]);
-    res.json({ liveBusinesses: total.c, pendingRegistrations: pending.c, photos: photos.c });
+    const [total, pending, photos] = await Promise.all([
+      get(`SELECT COUNT(*) c FROM businesses WHERE verification_status='VERIFIED'`),
+      get(`SELECT COUNT(*) c FROM businesses WHERE verification_status='PENDING'`),
+      get(`SELECT COUNT(*) c FROM business_photos WHERE status='PENDING'`)
+    ]);
+    res.json({ liveBusinesses: total.c, pendingRegistrations: pending.c, pendingPhotos: photos.c });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Admin: Get all businesses
 app.get('/api/admin/businesses', auth, requireRole('ADMIN'), async (req, res) => {
-  res.json(await all(`SELECT b.id,b.name,b.category,b.phone,b.address,b.verification_status,b.created_at,u.name owner_name,u.email owner_email FROM businesses b LEFT JOIN business_owners o ON o.business_id=b.id LEFT JOIN users u ON u.id=o.user_id ORDER BY CASE b.verification_status WHEN 'PENDING' THEN 0 ELSE 1 END,b.id DESC`));
+  res.json(await all(`SELECT b.id,b.name,b.category,b.phone,b.address,b.verification_status,b.created_at,u.name owner_name,u.email owner_email FROM businesses b LEFT JOIN business_owners o ON o.business_id=b.id LEFT JOIN users u ON u.id=o.user_id ORDER BY CASE b.verification_status WHEN 'PENDING' THEN 0 ELSE 1 END, b.id DESC`));
 });
 
+// Admin: Approve/Reject a business listing
 app.patch('/api/admin/businesses/:id/status', auth, requireRole('ADMIN'), async (req, res) => {
   try {
     const status = req.body.status;
     if (!['VERIFIED', 'REJECTED', 'PENDING'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-    const r = await run(`UPDATE businesses SET verification_status=?,verified=? WHERE id=?`, [status, status === 'VERIFIED' ? 1 : 0, req.params.id]);
+    const r = await run(`UPDATE businesses SET verification_status=?, verified=? WHERE id=?`, [status, status === 'VERIFIED' ? 1 : 0, req.params.id]);
     if (!r.changes) return res.status(404).json({ error: 'Business not found' });
+    marketPriceCache = null;
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Admin: Delete a business listing permanently
 app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, res) => {
   const client = await db.connect();
   try {
     const bizId = req.params.id;
     await client.query('BEGIN');
-
     const photos = await client.query('SELECT storage_path FROM business_photos WHERE business_id = $1', [bizId]);
     for (const p of photos.rows) {
       if (p.storage_path) {
@@ -609,18 +714,14 @@ app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, 
             method: 'DELETE',
             body: JSON.stringify({ prefixes: [p.storage_path] })
           });
-        } catch (err) {
-          console.warn('Storage deletion error:', err.message);
-        }
+        } catch (err) {}
       }
     }
-
     const result = await client.query('DELETE FROM businesses WHERE id = $1', [bizId]);
     if (!result.rowCount) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Business not found' });
     }
-
     await client.query('COMMIT');
     marketPriceCache = null;
     res.json({ ok: true, message: 'Business listing permanently deleted.' });
@@ -632,8 +733,13 @@ app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, 
   }
 });
 
-app.post('/api/businesses/:id/photos', auth, requireRole('ADMIN'), async (req, res) => {
+// Shopkeeper OR Admin: Upload Photo (Shopkeeper uploads are marked PENDING by default)
+app.post('/api/businesses/:id/photos', auth, async (req, res) => {
   try {
+    const isOwner = await ownerFor(req, req.params.id);
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Not authorized to upload photos for this shop.' });
+
     const business = await get(`SELECT id FROM businesses WHERE id=?`, [req.params.id]);
     if (!business) return res.status(404).json({ error: 'Business not found' });
     const raw = String(req.body.image_data || '');
@@ -646,15 +752,40 @@ app.post('/api/businesses/:id/photos', auth, requireRole('ADMIN'), async (req, r
     const objectPath = `business-${business.id}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
     await storageRequest(`/object/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`, { method: 'POST', headers: { 'Content-Type': mime, 'x-upsert': 'false', 'cache-control': '31536000' }, body: buffer });
     const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`;
-    const r = await run(`INSERT INTO business_photos(business_id,user_id,image_url,storage_path,caption,status,created_at) VALUES(?,?,?,?,?,?,?)`, [business.id, req.user.id, imageUrl, objectPath, String(req.body.caption || '').trim().slice(0, 180), 'VISIBLE', now()]);
-    res.json(await get(`SELECT id,business_id,image_url,caption,created_at FROM business_photos WHERE id=?`, [r.lastID]));
+
+    // Admin uploads are automatically VISIBLE; Shopkeeper uploads start as PENDING for admin review
+    const photoStatus = isAdmin ? 'VISIBLE' : 'PENDING';
+    const r = await run(`INSERT INTO business_photos(business_id,user_id,image_url,storage_path,caption,status,created_at) VALUES(?,?,?,?,?,?,?)`, [business.id, req.user.id, imageUrl, objectPath, String(req.body.caption || '').trim().slice(0, 180), photoStatus, now()]);
+    res.json(await get(`SELECT id,business_id,image_url,caption,status,created_at FROM business_photos WHERE id=?`, [r.lastID]));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/business-photos/:id', auth, requireRole('ADMIN'), async (req, res) => {
+// Admin: Get all pending photos across all businesses
+app.get('/api/admin/pending-photos', auth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const photos = await all(`SELECT p.id, p.business_id, p.image_url, p.caption, p.status, p.created_at, b.name as business_name FROM business_photos p JOIN businesses b ON b.id = p.business_id WHERE p.status = 'PENDING' ORDER BY p.created_at DESC`);
+    res.json(photos);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: Approve or Reject a photo
+app.patch('/api/admin/photos/:id/status', auth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['VISIBLE', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    await run('UPDATE business_photos SET status=? WHERE id=?', [status, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/business-photos/:id', auth, async (req, res) => {
   try {
     const photo = await get(`SELECT * FROM business_photos WHERE id=?`, [req.params.id]);
     if (!photo) return res.status(404).json({ error: 'Photo not found' });
+    const isOwner = await ownerFor(req, photo.business_id);
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Not authorized' });
+
     const objectPath = photo.storage_path || storageObjectPath(photo.image_url);
     if (objectPath) await storageRequest('/object/' + encodeURIComponent(SUPABASE_STORAGE_BUCKET), { method: 'DELETE', body: JSON.stringify({ prefixes: [objectPath] }) });
     await run(`DELETE FROM business_photos WHERE id=?`, [photo.id]);
