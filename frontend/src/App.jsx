@@ -133,6 +133,7 @@ const i18n = {
     adminStatus: 'Status',
     forgotPassword: 'Forgot password?',
     resetPassword: 'Reset Password',
+    registrationInitiated: 'Shop registration initiated, waiting for admin approval. Please check your email to verify your address.',
     catAll: 'All',
     catElectronics: 'Electronics & Appliances',
     catGrocery: 'Daily Needs & Kirana',
@@ -254,6 +255,7 @@ const i18n = {
     adminStatus: 'स्थिति',
     forgotPassword: 'पासवर्ड भूल गए?',
     resetPassword: 'पासवर्ड बदलें',
+    registrationInitiated: 'दुकान का पंजीकरण शुरू हो गया है, एडमिन की मंजूरी का इंतजार है। कृपया ईमेल सत्यापित करें।',
     catAll: 'सब',
     catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
     catGrocery: 'किराना व दैनिक सामान',
@@ -625,7 +627,7 @@ function App() {
           onRegister={async d => {
             const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) });
             setAuthMode(null);
-            setNotice(result.message || 'Check your email to verify your account.');
+            setNotice(result.message || t.registrationInitiated);
           }}
         />
       )}
@@ -1424,13 +1426,11 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
   const [msg, setMsg] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // Shopkeeper Photo Upload
   const [preview, setPreview] = useState('');
   const [caption, setCaption] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef(null);
 
-  // Shopkeeper Account Details Form
   const [accountName, setAccountName] = useState(user?.name || '');
   const [accountEmail, setAccountEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');

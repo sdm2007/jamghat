@@ -35,7 +35,7 @@ if (fs.existsSync(caCertPath)) {
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PGSSLMODE === 'disable' ? false : sslConfig,
-  max: Number(process.env.PG_POOL_MAX || 5),
+  max: Number(process.env.PG_POOL_MAX || 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });
@@ -141,17 +141,14 @@ const EMAIL_FROM = String(process.env.EMAIL_FROM || SMTP_USER).trim();
 const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
 function mailConfigured() { return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && EMAIL_FROM); }
-
 function mailTransport() {
-  if (!mailConfigured()) {
-    throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in your environment variables.');
-  }
+  if (!mailConfigured()) throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in your environment variables.');
   return nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
     secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || SMTP_PORT === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
-    connectionTimeout: 8000, // abort socket connection after 8 seconds
+    connectionTimeout: 8000,
     greetingTimeout: 5000,
     socketTimeout: 10000
   });
@@ -177,8 +174,29 @@ async function sendResetPasswordEmail(email, name, rawToken) {
     from: EMAIL_FROM,
     to: email,
     subject: 'Reset your Jamghat password',
-    text: `Hello ${name},\n\nClick the link below to reset your Jamghat account password:\n\n${link}\n\nThis link expires in 1 hour. If you did not request this, please ignore this email.`,
+    text: `Hello ${name},\n\nClick the link below to reset your password:\n\n${link}\n\nThis link expires in 1 hour.`,
     html: `<p>Hello ${escapeHtml(name)},</p><p>Click the link below to reset your Jamghat password:</p><p><a href="${link}">Reset Password</a></p><p>This link expires in 1 hour.</p>`
+  });
+}
+
+async function sendShopApprovedEmail(email, name, shopName) {
+  const shopUrl = `${PUBLIC_APP_URL}`;
+  await mailTransport().sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject: `Your shop "${shopName}" is approved on Jamghat!`,
+    text: `Hello ${name},\n\nGreat news! Your shop "${shopName}" has been approved by the administrator and is now live on Jamghat.\n\nSign in to manage your inventory and profile here: ${shopUrl}\n\nBest regards,\nJamghat Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #e65f20;">Shop Approved! 🎉</h2>
+        <p>Hello <b>${escapeHtml(name)}</b>,</p>
+        <p>Great news! Your shop <strong>"${escapeHtml(shopName)}"</strong> has been reviewed and approved by the admin. It is now live on Jamghat for local customers to discover.</p>
+        <p>You can sign in anytime to update your prices, stock, and opening hours:</p>
+        <p><a href="${shopUrl}" style="background-color: #e65f20; color: #fff; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block;">Go to My Shop</a></p>
+        <br/>
+        <p>Best regards,<br/>The Jamghat Team</p>
+      </div>
+    `
   });
 }
 
@@ -291,7 +309,6 @@ async function enrichBusiness(b) {
 async function getBusiness(id) { const b = await get(`SELECT * FROM businesses WHERE id=?`, [id]); return b ? enrichBusiness(b) : null; }
 async function getBusinessPhotos(id) { return all(`SELECT id,business_id,image_url,caption,created_at FROM business_photos WHERE business_id=? AND status='VISIBLE' ORDER BY created_at DESC`, [id]); }
 
-// PUBLIC PORTAL: Only approved (VERIFIED) businesses show to public customers
 const PUBLIC_FILTER = `verification_status = 'VERIFIED'`;
 
 function rateLimit(max, windowMs) {
@@ -398,7 +415,6 @@ app.post('/api/auth/logout', auth, async (req, res) => {
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ user: req.user }));
 
-// Shopkeeper Account Details Update (Name, Email, Password)
 app.patch('/api/auth/me', auth, async (req, res) => {
   try {
     const { name, email, current_password, new_password } = req.body || {};
@@ -431,7 +447,6 @@ app.patch('/api/auth/me', auth, async (req, res) => {
   }
 });
 
-// Forgot Password: Request reset link
 app.post('/api/auth/forgot-password', rateLimit(5, 60 * 60 * 1000), async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -445,7 +460,11 @@ app.post('/api/auth/forgot-password', rateLimit(5, 60 * 60 * 1000), async (req, 
         tokenDigest(raw),
         new Date(Date.now() + 60 * 60 * 1000).toISOString()
       ]);
-      await sendResetPasswordEmail(u.email, u.name, raw);
+      try {
+        await sendResetPasswordEmail(u.email, u.name, raw);
+      } catch (err) {
+        console.error('SMTP error on password reset:', err.message);
+      }
     }
     res.json({ ok: true, message: 'If an account matches that email, a password reset link has been sent.' });
   } catch (e) {
@@ -453,7 +472,6 @@ app.post('/api/auth/forgot-password', rateLimit(5, 60 * 60 * 1000), async (req, 
   }
 });
 
-// Reset Password: Apply new password with token
 app.post('/api/auth/reset-password', rateLimit(5, 60 * 60 * 1000), async (req, res) => {
   try {
     const { token: raw, password } = req.body || {};
@@ -468,7 +486,7 @@ app.post('/api/auth/reset-password', rateLimit(5, 60 * 60 * 1000), async (req, r
     }
     await run('UPDATE users SET password_hash=? WHERE id=?', [hashPassword(password), row.user_id]);
     await run('DELETE FROM password_resets WHERE user_id=?', [row.user_id]);
-    await run('DELETE FROM sessions WHERE user_id=?', [row.user_id]); // logout all prior sessions
+    await run('DELETE FROM sessions WHERE user_id=?', [row.user_id]);
     res.json({ ok: true, message: 'Your password has been reset. You can now sign in with your new password.' });
   } catch (e) {
     res.status(500).json({ error: 'Could not reset password.' });
@@ -538,38 +556,22 @@ app.post('/api/auth/resend-verification', resendLimit, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Register: Starts as PENDING approval by admin!
 app.post('/api/business/register', registerLimit, async (req, res) => {
   let client;
   try {
-    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet. Add SMTP details to backend environment variables.' });
+    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet.' });
 
     const b = req.body || {};
     const clean = (v, n) => String(v ?? '').trim().slice(0, n);
-    const ownerName = clean(b.owner_name, 80),
-      email = clean(b.email, 120).toLowerCase(),
-      password = String(b.password || '');
-    const name = clean(b.business_name, 120),
-      category = clean(b.category, 60),
-      phone = clean(b.phone, 30),
-      address = clean(b.address, 200),
-      description = clean(b.description, 400);
+    const ownerName = clean(b.owner_name, 80), email = clean(b.email, 120).toLowerCase(), password = String(b.password || '');
+    const name = clean(b.business_name, 120), category = clean(b.category, 60), phone = clean(b.phone, 30), address = clean(b.address, 200), description = clean(b.description, 400);
 
-    if (!ownerName || !name || !category || !phone || !address) {
-      return res.status(400).json({ error: 'Your name, shop name, category, phone and address are required' });
-    }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
+    if (!ownerName || !name || !category || !phone || !address) return res.status(400).json({ error: 'Name, shop name, category, phone, and address are required' });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-    // Check duplicate email
     const existing = await get('SELECT id FROM users WHERE lower(email)=?', [email]);
-    if (existing) {
-      return res.status(400).json({ error: 'This email is already registered.' });
-    }
+    if (existing) return res.status(400).json({ error: 'This email is already registered.' });
 
     const lat = Number(b.latitude), lng = Number(b.longitude);
     const hasCoords = b.latitude !== '' && b.longitude !== '' && b.latitude != null && b.longitude != null && Number.isFinite(lat) && Number.isFinite(lng);
@@ -579,74 +581,49 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
     let userId, businessId, rawToken;
 
     await client.query('BEGIN');
-
-    const userResult = await client.query(
-      'INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id',
-      [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]
-    );
+    const userResult = await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id', [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]);
     userId = userResult.rows[0].id;
 
-    const bizResult = await client.query(
-      'INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',
-      [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]
-    );
+    const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
     businessId = bizResult.rows[0].id;
 
     await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
-
     for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
-      await client.query(
-        'INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING',
-        [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]
-      );
+      await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING', [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]);
     }
-
     rawToken = verificationToken();
-    await client.query(
-      'INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)',
-      [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]
-    );
+    await client.query('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)', [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]);
 
-    // Commit and release connection BEFORE sending email
     await client.query('COMMIT');
     client.release();
     client = null;
 
-    // Send email asynchronously without holding the DB lock
     try {
       await sendVerificationEmail(email, ownerName, rawToken);
     } catch (mailErr) {
       console.error('SMTP Delivery error:', mailErr.message);
-      return res.status(201).json({
-        ok: true,
-        business_id: businessId,
-        message: 'Account created, but verification email could not be sent. Check SMTP settings or request a resend.'
-      });
     }
 
     res.status(201).json({
       ok: true,
       business_id: businessId,
-      message: 'Registration submitted! Please verify your email to activate your account.'
+      message: 'Shop registration initiated, waiting for admin approval. Please check your email to verify your address.'
     });
   } catch (e) {
     if (client) {
       await client.query('ROLLBACK').catch(() => {});
       client.release();
     }
-    console.error('Registration error:', e);
     res.status(500).json({ error: e.message || 'Registration failed.' });
   }
 });
 
-// Shopkeeper: Fetch own business profile & photos (including pending ones)
 app.get('/api/business/me', auth, requireRole('BUSINESS_OWNER'), async (req, res) => {
   try {
     const own = await get(`SELECT business_id FROM business_owners WHERE user_id=?`, [req.user.id]);
     if (!own) return res.status(404).json({ error: 'No business found for this account' });
     const b = await getBusiness(own.business_id);
     const hours = await all(`SELECT * FROM business_hours WHERE business_id=? ORDER BY day`, [b.id]);
-    // Allow owner to see all their photos (including pending)
     const photos = await all(`SELECT id, business_id, image_url, caption, status, created_at FROM business_photos WHERE business_id=? ORDER BY created_at DESC`, [b.id]);
     res.json({ ...b, photos, hours });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -728,7 +705,6 @@ app.get('/api/demand', auth, requireRole('BUSINESS_OWNER', 'ADMIN'), async (req,
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: Overview
 app.get('/api/admin/overview', auth, requireRole('ADMIN'), async (req, res) => {
   try {
     const [total, pending, photos] = await Promise.all([
@@ -740,12 +716,10 @@ app.get('/api/admin/overview', auth, requireRole('ADMIN'), async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: Get all businesses
 app.get('/api/admin/businesses', auth, requireRole('ADMIN'), async (req, res) => {
   res.json(await all(`SELECT b.id,b.name,b.category,b.phone,b.address,b.verification_status,b.created_at,u.name owner_name,u.email owner_email FROM businesses b LEFT JOIN business_owners o ON o.business_id=b.id LEFT JOIN users u ON u.id=o.user_id ORDER BY CASE b.verification_status WHEN 'PENDING' THEN 0 ELSE 1 END, b.id DESC`));
 });
 
-// Admin: Approve/Reject a business listing
 app.patch('/api/admin/businesses/:id/status', auth, requireRole('ADMIN'), async (req, res) => {
   try {
     const status = req.body.status;
@@ -753,11 +727,29 @@ app.patch('/api/admin/businesses/:id/status', auth, requireRole('ADMIN'), async 
     const r = await run(`UPDATE businesses SET verification_status=?, verified=? WHERE id=?`, [status, status === 'VERIFIED' ? 1 : 0, req.params.id]);
     if (!r.changes) return res.status(404).json({ error: 'Business not found' });
     marketPriceCache = null;
-    res.json({ ok: true });
+
+    if (status === 'VERIFIED') {
+      const ownerInfo = await get(
+        `SELECT u.name, u.email, b.name as business_name 
+         FROM businesses b 
+         JOIN business_owners o ON o.business_id = b.id 
+         JOIN users u ON u.id = o.user_id 
+         WHERE b.id = ?`,
+        [req.params.id]
+      );
+      if (ownerInfo?.email) {
+        try {
+          await sendShopApprovedEmail(ownerInfo.email, ownerInfo.name, ownerInfo.business_name);
+        } catch (mailErr) {
+          console.warn('Could not send approval email notification:', mailErr.message);
+        }
+      }
+    }
+
+    res.json({ ok: true, message: `Status updated to ${status}.` });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: Delete a business listing permanently
 app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, res) => {
   const client = await db.connect();
   try {
@@ -790,7 +782,6 @@ app.delete('/api/admin/businesses/:id', auth, requireRole('ADMIN'), async (req, 
   }
 });
 
-// Shopkeeper OR Admin: Upload Photo (Shopkeeper uploads are marked PENDING by default)
 app.post('/api/businesses/:id/photos', auth, async (req, res) => {
   try {
     const isOwner = await ownerFor(req, req.params.id);
@@ -810,14 +801,12 @@ app.post('/api/businesses/:id/photos', auth, async (req, res) => {
     await storageRequest(`/object/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`, { method: 'POST', headers: { 'Content-Type': mime, 'x-upsert': 'false', 'cache-control': '31536000' }, body: buffer });
     const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`;
 
-    // Admin uploads are automatically VISIBLE; Shopkeeper uploads start as PENDING for admin review
     const photoStatus = isAdmin ? 'VISIBLE' : 'PENDING';
     const r = await run(`INSERT INTO business_photos(business_id,user_id,image_url,storage_path,caption,status,created_at) VALUES(?,?,?,?,?,?,?)`, [business.id, req.user.id, imageUrl, objectPath, String(req.body.caption || '').trim().slice(0, 180), photoStatus, now()]);
     res.json(await get(`SELECT id,business_id,image_url,caption,status,created_at FROM business_photos WHERE id=?`, [r.lastID]));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: Get all pending photos across all businesses
 app.get('/api/admin/pending-photos', auth, requireRole('ADMIN'), async (req, res) => {
   try {
     const photos = await all(`SELECT p.id, p.business_id, p.image_url, p.caption, p.status, p.created_at, b.name as business_name FROM business_photos p JOIN businesses b ON b.id = p.business_id WHERE p.status = 'PENDING' ORDER BY p.created_at DESC`);
@@ -825,7 +814,6 @@ app.get('/api/admin/pending-photos', auth, requireRole('ADMIN'), async (req, res
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: Approve or Reject a photo
 app.patch('/api/admin/photos/:id/status', auth, requireRole('ADMIN'), async (req, res) => {
   try {
     const { status } = req.body;
