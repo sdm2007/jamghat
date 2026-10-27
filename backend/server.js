@@ -141,13 +141,19 @@ const EMAIL_FROM = String(process.env.EMAIL_FROM || SMTP_USER).trim();
 const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
 function mailConfigured() { return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && EMAIL_FROM); }
+
 function mailTransport() {
-  if (!mailConfigured()) throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in your environment variables.');
+  if (!mailConfigured()) {
+    throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in your environment variables.');
+  }
   return nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
     secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 8000, // abort socket connection after 8 seconds
+    greetingTimeout: 5000,
+    socketTimeout: 10000
   });
 }
 
@@ -534,51 +540,102 @@ app.post('/api/auth/resend-verification', resendLimit, async (req, res) => {
 
 // Register: Starts as PENDING approval by admin!
 app.post('/api/business/register', registerLimit, async (req, res) => {
+  let client;
   try {
-    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet.' });
+    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet. Add SMTP details to backend environment variables.' });
 
     const b = req.body || {};
     const clean = (v, n) => String(v ?? '').trim().slice(0, n);
-    const ownerName = clean(b.owner_name, 80), email = clean(b.email, 120).toLowerCase(), password = String(b.password || '');
-    const name = clean(b.business_name, 120), category = clean(b.category, 60), phone = clean(b.phone, 30), address = clean(b.address, 200), description = clean(b.description, 400);
+    const ownerName = clean(b.owner_name, 80),
+      email = clean(b.email, 120).toLowerCase(),
+      password = String(b.password || '');
+    const name = clean(b.business_name, 120),
+      category = clean(b.category, 60),
+      phone = clean(b.phone, 30),
+      address = clean(b.address, 200),
+      description = clean(b.description, 400);
 
-    if (!ownerName || !name || !category || !phone || !address) return res.status(400).json({ error: 'Name, shop name, category, phone, and address are required' });
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (await get('SELECT id FROM users WHERE lower(email)=?', [email])) return res.status(400).json({ error: 'This email is already registered.' });
+    if (!ownerName || !name || !category || !phone || !address) {
+      return res.status(400).json({ error: 'Your name, shop name, category, phone and address are required' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Check duplicate email
+    const existing = await get('SELECT id FROM users WHERE lower(email)=?', [email]);
+    if (existing) {
+      return res.status(400).json({ error: 'This email is already registered.' });
+    }
 
     const lat = Number(b.latitude), lng = Number(b.longitude);
     const hasCoords = b.latitude !== '' && b.longitude !== '' && b.latitude != null && b.longitude != null && Number.isFinite(lat) && Number.isFinite(lng);
     const homeVisit = category === 'Services & Repairs' ? 1 : 0;
 
-    const client = await db.connect();
+    client = await db.connect();
     let userId, businessId, rawToken;
+
+    await client.query('BEGIN');
+
+    const userResult = await client.query(
+      'INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id',
+      [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]
+    );
+    userId = userResult.rows[0].id;
+
+    const bizResult = await client.query(
+      'INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',
+      [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]
+    );
+    businessId = bizResult.rows[0].id;
+
+    await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
+
+    for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+      await client.query(
+        'INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING',
+        [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]
+      );
+    }
+
+    rawToken = verificationToken();
+    await client.query(
+      'INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)',
+      [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]
+    );
+
+    // Commit and release connection BEFORE sending email
+    await client.query('COMMIT');
+    client.release();
+    client = null;
+
+    // Send email asynchronously without holding the DB lock
     try {
-      await client.query('BEGIN');
-      const userResult = await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id', [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]);
-      userId = userResult.rows[0].id;
-
-      // Notice verification_status is set to PENDING for admin approval!
-      const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
-      businessId = bizResult.rows[0].id;
-
-      await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
-      for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
-        await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING', [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]);
-      }
-      rawToken = verificationToken();
-      await client.query('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)', [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]);
       await sendVerificationEmail(email, ownerName, rawToken);
-      await client.query('COMMIT');
-    } catch (err) {
+    } catch (mailErr) {
+      console.error('SMTP Delivery error:', mailErr.message);
+      return res.status(201).json({
+        ok: true,
+        business_id: businessId,
+        message: 'Account created, but verification email could not be sent. Check SMTP settings or request a resend.'
+      });
+    }
+
+    res.status(201).json({
+      ok: true,
+      business_id: businessId,
+      message: 'Registration submitted! Please verify your email to activate your account.'
+    });
+  } catch (e) {
+    if (client) {
       await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
       client.release();
     }
-    res.status(201).json({ ok: true, business_id: businessId, message: 'Registration submitted! Please verify your email. Once approved by the administrator, your shop will go live on Jamghat.' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('Registration error:', e);
+    res.status(500).json({ error: e.message || 'Registration failed.' });
   }
 });
 
