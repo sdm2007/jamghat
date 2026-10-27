@@ -76,3 +76,5 @@ ALTER TABLE businesses ALTER COLUMN verified SET DEFAULT 0;
 
 -- Change default status for uploaded photos to PENDING approval
 ALTER TABLE business_photos ALTER COLUMN status SET DEFAULT 'PENDING';
+
+UPDATE users SET email_verified = TRUE, email_verified_at = NOW() WHERE email_verified = FALSE;

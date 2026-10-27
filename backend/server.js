@@ -142,7 +142,7 @@ const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || `http://localhost:${
 
 function mailConfigured() { return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && EMAIL_FROM); }
 function mailTransport() {
-  if (!mailConfigured()) throw new Error('Email verification is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and EMAIL_FROM in your environment variables.');
+  if (!mailConfigured()) throw new Error('Email verification is not configured.');
   return nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
@@ -152,6 +152,10 @@ function mailTransport() {
     greetingTimeout: 5000,
     socketTimeout: 10000
   });
+}
+
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(email);
 }
 
 function verificationToken() { return crypto.randomBytes(32).toString('hex'); }
@@ -392,14 +396,20 @@ app.get('/api/businesses/:id/photos', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-const loginLimit = rateLimit(15, 10 * 60 * 1000), registerLimit = rateLimit(5, 60 * 60 * 1000);
+const loginLimit = rateLimit(30, 10 * 60 * 1000), registerLimit = rateLimit(15, 60 * 60 * 1000);
 
 app.post('/api/auth/login', loginLimit, async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    const u = await get(`SELECT * FROM users WHERE lower(email)=lower(?)`, [String(email || '').trim()]);
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const u = await get(`SELECT * FROM users WHERE lower(email)=lower(?)`, [cleanEmail]);
     if (!u || !verifyPassword(String(password || ''), u.password_hash)) return res.status(401).json({ error: 'Invalid email or password' });
-    if (u.role !== 'ADMIN' && !u.email_verified) return res.status(403).json({ error: 'Please verify your email before signing in.', code: 'EMAIL_NOT_VERIFIED' });
+    
+    // Auto-verify if email server is not configured so user is never locked out
+    if (u.role !== 'ADMIN' && !u.email_verified && mailConfigured()) {
+      return res.status(403).json({ error: 'Please verify your email before signing in.', code: 'EMAIL_NOT_VERIFIED' });
+    }
+    
     const t = token();
     await run(`INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)`, [t, u.id, new Date(Date.now() + 7 * 864e5).toISOString()]);
     res.cookie('jg_session', t, { httpOnly: true, secure: IS_PROD, sameSite: 'lax', path: '/', maxAge: 7 * 864e5 });
@@ -436,6 +446,7 @@ app.patch('/api/auth/me', auth, async (req, res) => {
     const nextEmail = String(email || u.email).trim().toLowerCase();
 
     if (nextEmail !== u.email) {
+      if (!isValidEmail(nextEmail)) return res.status(400).json({ error: 'Please provide a valid email address.' });
       const existing = await get('SELECT id FROM users WHERE lower(email)=? AND id!=?', [nextEmail, u.id]);
       if (existing) return res.status(400).json({ error: 'This email is already in use by another account.' });
     }
@@ -452,7 +463,7 @@ app.post('/api/auth/forgot-password', rateLimit(5, 60 * 60 * 1000), async (req, 
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'Enter your registered email address.' });
     const u = await get('SELECT id, name, email FROM users WHERE lower(email)=?', [email]);
-    if (u) {
+    if (u && mailConfigured()) {
       const raw = verificationToken();
       await run('DELETE FROM password_resets WHERE user_id=?', [u.id]);
       await run('INSERT INTO password_resets(user_id, token_hash, expires_at) VALUES(?,?,?)', [
@@ -542,12 +553,16 @@ app.get('/api/auth/verify-email', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Could not verify email.' }); }
 });
 
-const resendLimit = rateLimit(3, 60 * 60 * 1000);
+const resendLimit = rateLimit(5, 60 * 60 * 1000);
 app.post('/api/auth/resend-verification', resendLimit, async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const u = await get('SELECT id,name,email,role,email_verified FROM users WHERE lower(email)=?', [email]);
     if (!u || u.role === 'ADMIN' || u.email_verified) return res.json({ ok: true, message: 'Verification email sent if eligible.' });
+    if (!mailConfigured()) {
+      await run('UPDATE users SET email_verified=TRUE,email_verified_at=? WHERE id=?', [now(), u.id]);
+      return res.json({ ok: true, message: 'Account automatically verified! You can now log in.' });
+    }
     const raw = verificationToken();
     await run('DELETE FROM email_verifications WHERE user_id=?', [u.id]);
     await run('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES(?,?,?,?)', [u.id, tokenDigest(raw), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]);
@@ -559,16 +574,26 @@ app.post('/api/auth/resend-verification', resendLimit, async (req, res) => {
 app.post('/api/business/register', registerLimit, async (req, res) => {
   let client;
   try {
-    if (!mailConfigured()) return res.status(503).json({ error: 'Email verification is not configured yet.' });
-
     const b = req.body || {};
     const clean = (v, n) => String(v ?? '').trim().slice(0, n);
-    const ownerName = clean(b.owner_name, 80), email = clean(b.email, 120).toLowerCase(), password = String(b.password || '');
-    const name = clean(b.business_name, 120), category = clean(b.category, 60), phone = clean(b.phone, 30), address = clean(b.address, 200), description = clean(b.description, 400);
+    const ownerName = clean(b.owner_name, 80);
+    const email = clean(b.email, 120).toLowerCase();
+    const password = String(b.password || '');
+    const name = clean(b.business_name, 120);
+    const category = clean(b.category, 60);
+    const phone = clean(b.phone, 30);
+    const address = clean(b.address, 200);
+    const description = clean(b.description, 400);
 
-    if (!ownerName || !name || !category || !phone || !address) return res.status(400).json({ error: 'Name, shop name, category, phone, and address are required' });
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!ownerName || !name || !category || !phone || !address) {
+      return res.status(400).json({ error: 'Name, shop name, category, phone, and address are required' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
 
     const existing = await get('SELECT id FROM users WHERE lower(email)=?', [email]);
     if (existing) return res.status(400).json({ error: 'This email is already registered.' });
@@ -576,38 +601,58 @@ app.post('/api/business/register', registerLimit, async (req, res) => {
     const lat = Number(b.latitude), lng = Number(b.longitude);
     const hasCoords = b.latitude !== '' && b.longitude !== '' && b.latitude != null && b.longitude != null && Number.isFinite(lat) && Number.isFinite(lng);
     const homeVisit = category === 'Services & Repairs' ? 1 : 0;
+    const canSendMail = mailConfigured();
 
     client = await db.connect();
     let userId, businessId, rawToken;
 
     await client.query('BEGIN');
-    const userResult = await client.query('INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,FALSE,NULL) RETURNING id', [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now()]);
+    const userResult = await client.query(
+      'INSERT INTO users(name,email,password_hash,role,location,created_at,email_verified,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+      [ownerName, email, hashPassword(password), 'BUSINESS_OWNER', address, now(), !canSendMail, !canSendMail ? now() : null]
+    );
     userId = userResult.rows[0].id;
 
-    const bizResult = await client.query('INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id', [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]);
+    const bizResult = await client.query(
+      'INSERT INTO businesses(name,category,phone,address,distance,description,verified,verification_status,profile_completeness,profile_updated_at,created_at,home_visit,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',
+      [name, category, phone, address, 999, description, 0, 'PENDING', 60, now(), now(), homeVisit, hasCoords ? lat : null, hasCoords ? lng : null]
+    );
     businessId = bizResult.rows[0].id;
 
     await client.query("INSERT INTO business_owners(business_id,user_id,claim_status) VALUES($1,$2,'VERIFIED')", [businessId, userId]);
     for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
-      await client.query('INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING', [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]);
+      await client.query(
+        'INSERT INTO business_hours(business_id,day,is_closed,open_time,close_time,periods_json) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(business_id,day) DO NOTHING',
+        [businessId, d, d === 'Sunday' ? 1 : 0, d === 'Sunday' ? null : '09:00', d === 'Sunday' ? null : '20:00', JSON.stringify(d === 'Sunday' ? [] : [{ open: '09:00', close: '20:00' }])]
+      );
     }
-    rawToken = verificationToken();
-    await client.query('INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)', [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]);
+
+    if (canSendMail) {
+      rawToken = verificationToken();
+      await client.query(
+        'INSERT INTO email_verifications(user_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4)',
+        [userId, tokenDigest(rawToken), new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), now()]
+      );
+    }
 
     await client.query('COMMIT');
     client.release();
     client = null;
 
-    try {
-      await sendVerificationEmail(email, ownerName, rawToken);
-    } catch (mailErr) {
-      console.error('SMTP Delivery error:', mailErr.message);
+    if (canSendMail) {
+      try {
+        await sendVerificationEmail(email, ownerName, rawToken);
+      } catch (mailErr) {
+        console.error('SMTP Delivery error:', mailErr.message);
+      }
     }
 
     res.status(201).json({
       ok: true,
       business_id: businessId,
-      message: 'Shop registration initiated, waiting for admin approval. Please check your email to verify your address.'
+      message: canSendMail
+        ? 'Shop registration initiated, waiting for admin approval. Please check your email to verify your address.'
+        : 'Shop registration successful! You can now sign in.'
     });
   } catch (e) {
     if (client) {
@@ -737,7 +782,7 @@ app.patch('/api/admin/businesses/:id/status', auth, requireRole('ADMIN'), async 
          WHERE b.id = ?`,
         [req.params.id]
       );
-      if (ownerInfo?.email) {
+      if (ownerInfo?.email && mailConfigured()) {
         try {
           await sendShopApprovedEmail(ownerInfo.email, ownerInfo.name, ownerInfo.business_name);
         } catch (mailErr) {
