@@ -5,7 +5,6 @@ import {
   ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle
 } from 'lucide-react';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 const DEFAULT_LOCATION = { lat: 22.7196, lng: 75.8577, label: 'Bada Bazaar, Indore' };
@@ -55,7 +54,6 @@ const i18n = {
     currentLocationText: 'Your current location',
     exploreMap: 'EXPLORE ON MAP',
     liveLocationMap: 'LIVE LOCATION MAP',
-    whoServesArea: 'Who serves this area?',
     whatIsNearby: 'What is nearby & shortest route',
     tapToExplore: 'Tap to explore nearby shops and route',
     tapToHide: 'Tap to hide the map.',
@@ -237,33 +235,45 @@ const i18n = {
     enterExactQty: 'स्टॉक मात्रा दर्ज करें या खाली छोड़ें।',
     addItem: 'सामान / सर्विस जोड़ें',
     noTips: 'अभी कोई सुझाव उपलब्ध नहीं हैं।',
-    profileComplete: '% प्रोफ़ाइल पूर्ण',
-    insideCoverage: 'सबसे छोटा रास्ता मिल गया',
-    outsideCoverage: 'रास्ता उपलब्ध नहीं है',
-    customerLocationNotSet: 'ग्राहक लोकेशन सेट नहीं है',
-    shortestRoute: 'सबसे छोटा रास्ता',
-    deleteAccount: 'खाता डिलीट करें',
-    deleteAccountConfirm: 'क्या आप वाकई अपना प्रोफाइल और दुकान हमेशा के लिए हटाना चाहते हैं? यह वापस नहीं हो सकता।',
-    deletingAccount: 'खाता हटाया जा रहा है…',
-    adminShops: 'दुकानें व सेवाएं',
-    adminDeleteListing: 'लिस्टिंग हटाएं',
-    adminDeleteConfirm: 'क्या आप वाकई "{name}" की लिस्टिंग हमेशा के लिए हटाना चाहते हैं? इसके सभी आइटम व तस्वीरें हटा दी जाएंगी।',
-    adminApprove: 'मंजूरी दें',
-    adminReject: 'अस्वीकार करें',
-    adminStatus: 'स्थिति',
-    forgotPassword: 'पासवर्ड भूल गए?',
-    resetPassword: 'पासवर्ड बदलें',
-    catAll: 'सब',
-    catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
-    catGrocery: 'किराना व दैनिक सामान',
-    catFood: 'भोजन, मिठाई व बेकरी',
-    catFashion: 'कपड़े व फैशन',
-    catHardware: 'घर व हार्डवेयर',
-    catSalon: 'सैलून व पर्सनल केयर',
-    catServices: 'सर्विस व मरम्मत',
-    catBooks: 'किताबें व स्टेशनरी'
+    profileComplete: '% profile complete',
+    insideCoverage: 'Shortest route found',
+    outsideCoverage: 'Route not available',
+    customerLocationNotSet: 'Customer location not set',
+    shortestRoute: 'Shortest Route',
+    deleteAccount: 'Delete account',
+    deleteAccountConfirm: 'Are you sure you want to permanently delete your profile and shop listing? This action cannot be undone.',
+    deletingAccount: 'Deleting account…',
+    adminShops: 'Shops & Services',
+    adminDeleteListing: 'Delete Listing',
+    adminDeleteConfirm: 'Are you sure you want to permanently remove "{name}"? All associated catalog items and photos will be deleted.',
+    adminApprove: 'Approve',
+    adminReject: 'Reject',
+    adminStatus: 'Status',
+    forgotPassword: 'Forgot password?',
+    resetPassword: 'Reset Password',
+    catAll: 'All',
+    catElectronics: 'Electronics & Appliances',
+    catGrocery: 'Daily Needs & Kirana',
+    catFood: 'Food, Sweets & Bakery',
+    catFashion: 'Clothing & Fashion',
+    catHardware: 'Home & Hardware',
+    catSalon: 'Personal Care & Salon',
+    catServices: 'Services & Repairs',
+    catBooks: 'Books & Stationery'
   }
 };
+
+const getCategoryList = t => [
+  ['ALL', t.catAll, '🏪'],
+  ['Electronics & Appliances', t.catElectronics, '⚡'],
+  ['Daily Needs & Kirana', t.catGrocery, '🛒'],
+  ['Food, Sweets & Bakery', t.catFood, '🍲'],
+  ['Clothing & Fashion', t.catFashion, '👕'],
+  ['Home & Hardware', t.catHardware, '🔧'],
+  ['Personal Care & Salon', t.catSalon, '✂️'],
+  ['Services & Repairs', t.catServices, '🛠️'],
+  ['Books & Stationery', t.catBooks, '📚']
+];
 
 const distText = b => {
   const d = Number(b?.distance);
@@ -793,69 +803,73 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
       mapInstanceRef.current = null;
     }
 
-    const map = L.map(mapContainerRef.current).setView([providerLat, providerLng], 14);
-    mapInstanceRef.current = map;
+    try {
+      const map = L.map(mapContainerRef.current).setView([providerLat, providerLng], 14);
+      mapInstanceRef.current = map;
 
-    // CARTO Voyager Tile Layer: Free, high-bandwidth CDN, no OSM volunteer server 403 blocks
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19
-    }).addTo(map);
+      // CARTO Voyager Tile Layer (Free, reliable, no 403 access blocked errors)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(map);
 
-    const shopIcon = L.divIcon({
-      className: 'custom-shop-pin',
-      html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);font-size:14px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
-    L.marker([providerLat, providerLng], { icon: shopIcon })
-      .addTo(map)
-      .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
+      const shopIcon = L.divIcon({
+        className: 'custom-shop-pin',
+        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);font-size:14px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker([providerLat, providerLng], { icon: shopIcon })
+        .addTo(map)
+        .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
 
-    businesses
-      .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
-      .forEach(b => {
-        const otherIcon = L.divIcon({
-          className: 'custom-secondary-pin',
-          html: `<div style="background:#64748b;color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:11px;font-weight:bold;border:1.5px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${escapeHtml(b.name.slice(0, 1))}</div>`,
+      businesses
+        .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
+        .forEach(b => {
+          const otherIcon = L.divIcon({
+            className: 'custom-secondary-pin',
+            html: `<div style="background:#64748b;color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:11px;font-weight:bold;border:1.5px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${escapeHtml(b.name.slice(0, 1))}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
+          const m = L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 }).addTo(map);
+          m.bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
+        });
+
+      if (hasCustomerCoords) {
+        const customerIcon = L.divIcon({
+          className: 'custom-user-pin',
+          html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">You</div>`,
           iconSize: [24, 24],
           iconAnchor: [12, 12]
         });
-        const m = L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 }).addTo(map);
-        m.bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
-      });
 
-    if (hasCustomerCoords) {
-      const customerIcon = L.divIcon({
-        className: 'custom-user-pin',
-        html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">You</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      });
+        L.marker([customerLat, customerLng], { icon: customerIcon })
+          .addTo(map)
+          .bindPopup(t.currentLocationText);
 
-      L.marker([customerLat, customerLng], { icon: customerIcon })
-        .addTo(map)
-        .bindPopup(t.currentLocationText);
+        fetch(`https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.routes && data.routes.length > 0) {
+              const route = data.routes[0];
+              const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+              const polyline = L.polyline(coordinates, { color: '#e65f20', weight: 5, opacity: 0.85 }).addTo(map);
+              map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
 
-      fetch(`https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.routes && data.routes.length > 0) {
-            const route = data.routes[0];
-            const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-            const polyline = L.polyline(coordinates, { color: '#e65f20', weight: 5, opacity: 0.85 }).addTo(map);
-            map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
-
-            setRouteInfo({
-              distance: `${(route.distance / 1000).toFixed(1)} km`,
-              duration: `${Math.round(route.duration / 60)} mins`
-            });
-          }
-        })
-        .catch(() => {
-          map.fitBounds(L.latLngBounds([[customerLat, customerLng], [providerLat, providerLng]]), { padding: [40, 40] });
-        });
+              setRouteInfo({
+                distance: `${(route.distance / 1000).toFixed(1)} km`,
+                duration: `${Math.round(route.duration / 60)} mins`
+              });
+            }
+          })
+          .catch(() => {
+            map.fitBounds(L.latLngBounds([[customerLat, customerLng], [providerLat, providerLng]]), { padding: [40, 40] });
+          });
+      }
+    } catch (err) {
+      console.error('Leaflet load error:', err);
     }
 
     return () => {
