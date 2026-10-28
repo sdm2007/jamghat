@@ -48,12 +48,14 @@ const i18n = {
     heroSubtitle: 'Compare local options, availability and opening hours before you go.',
     yourLocation: 'YOUR LOCATION',
     chooseLocation: 'Choose your location',
-    useMyLocation: 'Use my location',
-    locating: 'Locating…',
+    useMyLocation: 'Live GPS Tracking',
+    trackingActive: 'Tracking your location live…',
+    locating: 'Tracking GPS…',
     locationNotSet: 'Location not set',
     currentLocationText: 'Your current location',
     exploreMap: 'EXPLORE ON MAP',
     liveLocationMap: 'LIVE LOCATION MAP',
+    whoServesArea: 'Who serves this area?',
     whatIsNearby: 'What is nearby & shortest route',
     tapToExplore: 'Tap to explore nearby shops and route',
     tapToHide: 'Tap to hide the map.',
@@ -167,8 +169,9 @@ const i18n = {
     heroSubtitle: 'दुकान जाने से पहले आस-पास की दुकानें, उपलब्धता और समय जांचें।',
     yourLocation: 'आपकी लोकेशन',
     chooseLocation: 'अपनी लोकेशन चुनें',
-    useMyLocation: 'मेरी लोकेशन का उपयोग करें',
-    locating: 'लोकेशन खोजी जा रही है…',
+    useMyLocation: 'लाइव जीपीएस ट्रैकिंग',
+    trackingActive: 'आपकी लोकेशन लाइव ट्रैक हो रही है…',
+    locating: 'जीपीएस ट्रैक किया जा रहा है…',
     locationNotSet: 'लोकेशन सेट नहीं है',
     currentLocationText: 'आपकी वर्तमान लोकेशन',
     exploreMap: 'नक्शे पर देखें',
@@ -235,31 +238,31 @@ const i18n = {
     enterExactQty: 'स्टॉक मात्रा दर्ज करें या खाली छोड़ें।',
     addItem: 'सामान / सर्विस जोड़ें',
     noTips: 'अभी कोई सुझाव उपलब्ध नहीं हैं।',
-    profileComplete: '% profile complete',
-    insideCoverage: 'Shortest route found',
-    outsideCoverage: 'Route not available',
-    customerLocationNotSet: 'Customer location not set',
-    shortestRoute: 'Shortest Route',
-    deleteAccount: 'Delete account',
-    deleteAccountConfirm: 'Are you sure you want to permanently delete your profile and shop listing? This action cannot be undone.',
-    deletingAccount: 'Deleting account…',
-    adminShops: 'Shops & Services',
-    adminDeleteListing: 'Delete Listing',
-    adminDeleteConfirm: 'Are you sure you want to permanently remove "{name}"? All associated catalog items and photos will be deleted.',
-    adminApprove: 'Approve',
-    adminReject: 'Reject',
-    adminStatus: 'Status',
-    forgotPassword: 'Forgot password?',
-    resetPassword: 'Reset Password',
-    catAll: 'All',
-    catElectronics: 'Electronics & Appliances',
-    catGrocery: 'Daily Needs & Kirana',
-    catFood: 'Food, Sweets & Bakery',
-    catFashion: 'Clothing & Fashion',
-    catHardware: 'Home & Hardware',
-    catSalon: 'Personal Care & Salon',
-    catServices: 'Services & Repairs',
-    catBooks: 'Books & Stationery'
+    profileComplete: '% प्रोफ़ाइल पूर्ण',
+    insideCoverage: 'सबसे छोटा रास्ता मिल गया',
+    outsideCoverage: 'रास्ता उपलब्ध नहीं है',
+    customerLocationNotSet: 'ग्राहक लोकेशन सेट नहीं है',
+    shortestRoute: 'सबसे छोटा रास्ता',
+    deleteAccount: 'खाता डिलीट करें',
+    deleteAccountConfirm: 'क्या आप वाकई अपना प्रोफाइल और दुकान हमेशा के लिए हटाना चाहते हैं? यह वापस नहीं हो सकता।',
+    deletingAccount: 'खाता हटाया जा रहा है…',
+    adminShops: 'दुकानें व सेवाएं',
+    adminDeleteListing: 'लिस्टिंग हटाएं',
+    adminDeleteConfirm: 'क्या आप वाकई "{name}" की लिस्टिंग हमेशा के लिए हटाना चाहते हैं? इसके सभी आइटम व तस्वीरें हटा दी जाएंगी।',
+    adminApprove: 'मंजूरी दें',
+    adminReject: 'अस्वीकार करें',
+    adminStatus: 'स्थिति',
+    forgotPassword: 'पासवर्ड भूल गए?',
+    resetPassword: 'पासवर्ड बदलें',
+    catAll: 'सब',
+    catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
+    catGrocery: 'किराना व दैनिक सामान',
+    catFood: 'भोजन, मिठाई व बेकरी',
+    catFashion: 'कपड़े व फैशन',
+    catHardware: 'घर व हार्डवेयर',
+    catSalon: 'सैलून व पर्सनल केयर',
+    catServices: 'सर्विस व मरम्मत',
+    catBooks: 'किताबें व स्टेशनरी'
   }
 };
 
@@ -350,6 +353,7 @@ function App() {
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
   const [resetToken, setResetToken] = useState(null);
+  const watchIdRef = useRef(null);
   const t = i18n[lang] || i18n.en;
 
   useEffect(() => {
@@ -399,6 +403,14 @@ function App() {
     loadBusinesses();
   }, [query, category, customerLocation?.lat, customerLocation?.lng]);
 
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
   async function api(path, opts = {}) {
     const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
     const r = await fetch(`${API_BASE}${path}`, { ...opts, headers, credentials: 'include' });
@@ -430,18 +442,36 @@ function App() {
   }
 
   function chooseCustomerLocation(next) {
-    setCustomerLocation(next);
-    localStorage.setItem('mh-location', JSON.stringify(next));
+    setCustomerLocation(prev => {
+      // Don't cause re-render loops if coordinates shift by less than ~1-2 meters
+      if (prev && Math.abs(prev.lat - next.lat) < 0.00003 && Math.abs(prev.lng - next.lng) < 0.00003) {
+        return prev;
+      }
+      localStorage.setItem('mh-location', JSON.stringify(next));
+      return next;
+    });
   }
 
-  async function useMyLocation() {
+  function useMyLocation() {
     setLocationMessage('');
     if (!navigator.geolocation) {
       setLocationMessage('Location is not supported by this browser.');
       return;
     }
+
+    // Toggle off if already actively tracking
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+      setLocating(false);
+      setLocationMessage('Live tracking paused.');
+      return;
+    }
+
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    setLocationMessage(t.trackingActive);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
       pos => {
         const next = {
           lat: Number(pos.coords.latitude.toFixed(6)),
@@ -449,14 +479,17 @@ function App() {
           label: t.currentLocationText
         };
         chooseCustomerLocation(next);
-        setLocationMessage(t.currentLocationText);
-        setLocating(false);
+        setLocating(true);
       },
       err => {
-        setLocationMessage(err.code === 1 ? 'Location permission was denied.' : 'Unable to get your location.');
+        setLocationMessage(err.code === 1 ? 'Location permission was denied.' : 'Unable to track location.');
         setLocating(false);
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
     );
   }
 
@@ -762,9 +795,9 @@ function LocationBar({ location, locating, onLocate, message, t }) {
         </div>
       </div>
       <div className="location-actions">
-        <button className="secondary small" onClick={onLocate} disabled={locating}>
-          {locating ? <RefreshCw size={15} className="spin" /> : <LocateFixed size={15} />}{' '}
-          {locating ? t.locating : t.useMyLocation}
+        <button className={locating ? "primary small" : "secondary small"} onClick={onLocate}>
+          <LocateFixed size={15} className={locating ? "spin" : ""} />{' '}
+          {locating ? t.trackingActive : t.useMyLocation}
         </button>
         <a
           className="icon-btn"
@@ -785,6 +818,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
   const [expanded, setExpanded] = useState(true);
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const layersRef = useRef({ markers: null, route: null, userMarker: null });
   const [routeInfo, setRouteInfo] = useState(null);
 
   const providerLat = Number(business.latitude);
@@ -795,24 +829,19 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
   const customerLng = Number(customerLocation?.lng);
   const hasCustomerCoords = Number.isFinite(customerLat) && Number.isFinite(customerLng);
 
+  // Initialize Map container once
   useEffect(() => {
     if (!expanded || !hasProviderCoords || !mapContainerRef.current) return;
 
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
-
-    try {
+    if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         center: [providerLat, providerLng],
         zoom: 15,
         maxZoom: 19,
         zoomControl: true
       });
-      mapInstanceRef.current = map;
 
-      // OSM France Tile Server: high-detail street level up to zoom 20, free, reliable, no key
+      // OSM France Layer: High-detail road tiles without 403 blocks or zoom cutoffs
       L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         maxZoom: 20,
         maxNativeZoom: 19,
@@ -820,18 +849,22 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         attribution: '&copy; OpenStreetMap France &mdash; &copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      // Shop Marker
+      mapInstanceRef.current = map;
+      layersRef.current.route = L.featureGroup().addTo(map);
+      layersRef.current.markers = L.featureGroup().addTo(map);
+
+      // Shop Pin
       const shopIcon = L.divIcon({
         className: 'custom-shop-pin',
-        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
+        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
       L.marker([providerLat, providerLng], { icon: shopIcon })
-        .addTo(map)
+        .addTo(layersRef.current.markers)
         .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
 
-      // Other Nearby Shops
+      // Other nearby businesses
       businesses
         .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
         .forEach(b => {
@@ -841,103 +874,100 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           });
-          const m = L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 }).addTo(map);
-          m.bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
+          L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 })
+            .addTo(layersRef.current.markers)
+            .bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
         });
-
-      // Route & Customer Pin
-      if (hasCustomerCoords) {
-        const customerIcon = L.divIcon({
-          className: 'custom-user-pin',
-          html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13]
-        });
-
-        L.marker([customerLat, customerLng], { icon: customerIcon })
-          .addTo(map)
-          .bindPopup(t.currentLocationText);
-
-        const url = `https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`;
-
-        fetch(url)
-          .then(res => res.json())
-          .then(data => {
-            if (data.routes && data.routes.length > 0) {
-              const route = data.routes[0];
-              const roadCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-
-              // Connect origin pin to start of drivable road
-              const startLeg = [[customerLat, customerLng], roadCoordinates[0]];
-              // Connect end of drivable road to destination shop pin
-              const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
-
-              const featureGroup = L.featureGroup().addTo(map);
-
-              // Solid path for main road navigation
-              L.polyline(roadCoordinates, {
-                color: '#e65f20',
-                weight: 5,
-                opacity: 0.9,
-                lineJoin: 'round'
-              }).addTo(featureGroup);
-
-              // Dashed walking/access connectors
-              L.polyline(startLeg, {
-                color: '#2563eb',
-                weight: 3.5,
-                dashArray: '5, 7',
-                opacity: 0.85
-              }).addTo(featureGroup);
-
-              L.polyline(endLeg, {
-                color: '#e65f20',
-                weight: 3.5,
-                dashArray: '5, 7',
-                opacity: 0.85
-              }).addTo(featureGroup);
-
-              map.fitBounds(featureGroup.getBounds(), { padding: [50, 50] });
-
-              setRouteInfo({
-                distance: `${(route.distance / 1000).toFixed(1)} km`,
-                duration: `${Math.max(1, Math.round(route.duration / 60))} mins`
-              });
-            } else {
-              // Direct straight fallback
-              const directLine = L.polyline([[customerLat, customerLng], [providerLat, providerLng]], {
-                color: '#e65f20',
-                weight: 4,
-                dashArray: '6, 8',
-                opacity: 0.8
-              }).addTo(map);
-              map.fitBounds(directLine.getBounds(), { padding: [50, 50] });
-            }
-          })
-          .catch(() => {
-            map.fitBounds(L.latLngBounds([[customerLat, customerLng], [providerLat, providerLng]]), { padding: [50, 50] });
-          });
-      } else {
-        map.setView([providerLat, providerLng], 15);
-      }
 
       setTimeout(() => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize();
-        }
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
       }, 250);
-
-    } catch (err) {
-      console.error('Map rendering error:', err);
     }
 
     return () => {
-      if (mapInstanceRef.current) {
+      if (mapInstanceRef.current && !expanded) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [expanded, providerLat, providerLng, customerLat, customerLng, hasProviderCoords, hasCustomerCoords, businesses, business.id, t]);
+  }, [expanded, hasProviderCoords, providerLat, providerLng, businesses, business.id, business.name, business.address]);
+
+  // Update real-time GPS position and recalculate road routing dynamically as the user moves
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !hasProviderCoords || !hasCustomerCoords) return;
+
+    // Update customer marker position
+    const customerIcon = L.divIcon({
+      className: 'custom-user-pin',
+      html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13]
+    });
+
+    if (layersRef.current.userMarker) {
+      layersRef.current.userMarker.setLatLng([customerLat, customerLng]);
+    } else {
+      layersRef.current.userMarker = L.marker([customerLat, customerLng], { icon: customerIcon })
+        .addTo(map)
+        .bindPopup(t.currentLocationText);
+    }
+
+    // Dynamic OSRM Route Request
+    const url = `https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (!layersRef.current.route) return;
+        layersRef.current.route.clearLayers();
+
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const roadCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+          const startLeg = [[customerLat, customerLng], roadCoordinates[0]];
+          const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
+
+          // Solid main highway route
+          L.polyline(roadCoordinates, {
+            color: '#e65f20',
+            weight: 5,
+            opacity: 0.9,
+            lineJoin: 'round'
+          }).addTo(layersRef.current.route);
+
+          // Access dashed legs connecting actual pins to road entrance
+          L.polyline(startLeg, {
+            color: '#2563eb',
+            weight: 3.5,
+            dashArray: '5, 7',
+            opacity: 0.85
+          }).addTo(layersRef.current.route);
+
+          L.polyline(endLeg, {
+            color: '#e65f20',
+            weight: 3.5,
+            dashArray: '5, 7',
+            opacity: 0.85
+          }).addTo(layersRef.current.route);
+
+          setRouteInfo({
+            distance: `${(route.distance / 1000).toFixed(1)} km`,
+            duration: `${Math.max(1, Math.round(route.duration / 60))} mins`
+          });
+        } else {
+          // Direct straight connection fallback
+          L.polyline([[customerLat, customerLng], [providerLat, providerLng]], {
+            color: '#e65f20',
+            weight: 4,
+            dashArray: '6, 8',
+            opacity: 0.8
+          }).addTo(layersRef.current.route);
+        }
+      })
+      .catch(() => {});
+  }, [customerLat, customerLng, providerLat, providerLng, hasProviderCoords, hasCustomerCoords, t.currentLocationText]);
 
   if (!hasProviderCoords) {
     return (
