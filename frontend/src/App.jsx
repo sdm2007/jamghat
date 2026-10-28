@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, MapPin, Phone, ArrowLeft, TrendingUp, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
+  Search, MapPin, Phone, ArrowLeft, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Sparkles, Trash2, Route, User, KeyRound, Check, XCircle
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -52,11 +52,9 @@ const i18n = {
     useMyLocation: 'Use my location',
     locating: 'Locating…',
     locationNotSet: 'Location not set',
-    pinnedLocation: 'Pinned map location',
     currentLocationText: 'Your current location',
     exploreMap: 'EXPLORE ON MAP',
     liveLocationMap: 'LIVE LOCATION MAP',
-    whoServesArea: 'Who serves this area?',
     whatIsNearby: 'What is nearby & shortest route',
     tapToExplore: 'Tap to explore nearby shops and route',
     tapToHide: 'Tap to hide the map.',
@@ -134,7 +132,6 @@ const i18n = {
     adminStatus: 'Status',
     forgotPassword: 'Forgot password?',
     resetPassword: 'Reset Password',
-    registrationInitiated: 'Shop registration initiated, waiting for admin approval. Please check your email to verify your address.',
     catAll: 'All',
     catElectronics: 'Electronics & Appliances',
     catGrocery: 'Daily Needs & Kirana',
@@ -174,11 +171,9 @@ const i18n = {
     useMyLocation: 'मेरी लोकेशन का उपयोग करें',
     locating: 'लोकेशन खोजी जा रही है…',
     locationNotSet: 'लोकेशन सेट नहीं है',
-    pinnedLocation: 'मैप पर चुनी लोकेशन',
     currentLocationText: 'आपकी वर्तमान लोकेशन',
     exploreMap: 'नक्शे पर देखें',
     liveLocationMap: 'लाइव लोकेशन मैप',
-    whoServesArea: 'इस क्षेत्र में कौन सी सेवाएं उपलब्ध हैं?',
     whatIsNearby: 'आस-पास की दुकानें और सबसे छोटा रास्ता',
     tapToExplore: 'नक्शा और रास्ता देखने के लिए टैप करें',
     tapToHide: 'नक्शा छिपाने के लिए टैप करें',
@@ -256,7 +251,6 @@ const i18n = {
     adminStatus: 'स्थिति',
     forgotPassword: 'पासवर्ड भूल गए?',
     resetPassword: 'पासवर्ड बदलें',
-    registrationInitiated: 'दुकान का पंजीकरण शुरू हो गया है, एडमिन की मंजूरी का इंतजार है। कृपया ईमेल सत्यापित करें।',
     catAll: 'सब',
     catElectronics: 'इलेक्ट्रॉनिक्स व उपकरण',
     catGrocery: 'किराना व दैनिक सामान',
@@ -383,7 +377,7 @@ function App() {
 
     if (verificationToken) {
       api(`/auth/verify-email?token=${encodeURIComponent(verificationToken)}`)
-        .then(x => setNotice(x.message || 'Email verified. You can now sign in.'))
+        .then(x => setNotice(x.message || 'Email verified. Shop submitted for review.'))
         .catch(e => setNotice(e.message))
         .finally(() => {
           params.delete('verify_email');
@@ -481,13 +475,15 @@ function App() {
     setPage('home');
   }
 
-  async function openBusiness(b) {
-    try {
-      setSelected(await api(`/businesses/${b.id}`));
-      setPage('business');
-    } catch (e) {
-      setError(e.message);
-    }
+  // Instant opening UX: Immediately show the cached view then fetch extra details in background
+  function openBusiness(b) {
+    setSelected(b);
+    setPage('business');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    api(`/businesses/${b.id}`)
+      .then(full => setSelected(full))
+      .catch(() => {});
   }
 
   const homeOfUser = user ? (user.role === 'ADMIN' ? 'admin' : 'dashboard') : null;
@@ -628,7 +624,7 @@ function App() {
           onRegister={async d => {
             const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) });
             setAuthMode(null);
-            setNotice(result.message || t.registrationInitiated);
+            setNotice(result.message);
           }}
         />
       )}
@@ -826,7 +822,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
       .addTo(map)
       .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
 
-    // Show other nearby shops as secondary pins
     businesses
       .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
       .forEach(b => {
@@ -840,7 +835,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         m.bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
       });
 
-    // If customer has coordinates, calculate shortest route via OSRM
     if (hasCustomerCoords) {
       const customerIcon = L.divIcon({
         className: 'custom-user-pin',
@@ -859,7 +853,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
           if (data.routes && data.routes.length > 0) {
             const route = data.routes[0];
             const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-            
             const polyline = L.polyline(coordinates, { color: '#e65f20', weight: 5, opacity: 0.85 }).addTo(map);
             map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
 
@@ -1485,9 +1478,14 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
             {biz.profile_completeness}
             {t.profileComplete} · Status: <strong>{biz.verification_status}</strong>
           </p>
+          {biz.verification_status === 'EMAIL_UNVERIFIED' && (
+            <small style={{ color: 'var(--red)', display: 'block', marginTop: '4px' }}>
+              Action required: Check your inbox and click the verification link to submit your shop for activation.
+            </small>
+          )}
           {biz.verification_status === 'PENDING' && (
             <small style={{ color: 'var(--brand)', display: 'block', marginTop: '4px' }}>
-              Your listing is awaiting review and approval by the administrator before it goes live to customers.
+              Your email is verified! Your listing is now in queue awaiting admin activation.
             </small>
           )}
         </div>
@@ -1523,7 +1521,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
           <div className="metric-grid">
             <Metric
               label="Listing"
-              value={biz.verification_status === 'PENDING' ? 'Pending Approval' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'}
+              value={biz.verification_status === 'EMAIL_UNVERIFIED' ? 'Verify Email' : biz.verification_status === 'PENDING' ? 'Pending Approval' : biz.verification_status === 'REJECTED' ? 'Hidden' : 'Live'}
             />
             <Metric label={t.itemsCount} value={biz.items.length} />
             <Metric label="Status" value={biz.is_open ? t.open : t.closed} />
@@ -1575,7 +1573,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
           <div className="section-head">
             <div>
               <h2><Camera size={18} /> {t.shopPhotos}</h2>
-              <small>Upload photos of your shop, counters, and products. Admin review is required before they go live.</small>
+              <small>Upload photos of your shop and products.</small>
             </div>
           </div>
           <div className="photo-uploader">
@@ -1624,7 +1622,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
           <div className="section-head">
             <div>
               <h2><User size={18} /> {t.myAccount}</h2>
-              <small>Edit your personal login email, full name, or update your password.</small>
+              <small>Edit your personal login email or password.</small>
             </div>
           </div>
           <form onSubmit={handleAccountUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '420px', marginTop: '14px' }}>
@@ -1637,7 +1635,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
               <input type="email" value={accountEmail} onChange={e => setAccountEmail(e.target.value)} required />
             </label>
             <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Change Password (leave blank if keeping current password)</span>
+            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Change Password</span>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
               Current Password
               <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
@@ -1807,22 +1805,26 @@ function AdminDashboard({ api, logout, t }) {
     load();
   }, []);
 
+  // Optimistic UI updates immediately eliminate the latency feel for admin clicks
   async function setStatus(id, status) {
+    setShops(prev => prev.map(s => s.id === id ? { ...s, verification_status: status } : s));
     try {
       await api(`/admin/businesses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
       await load();
     } catch (e) {
       setMsg(e.message);
+      await load();
     }
   }
 
   async function setPhotoStatus(photoId, status) {
+    setPendingPhotos(prev => prev.filter(p => p.id !== photoId));
     try {
       await api(`/admin/photos/${photoId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
       await load();
-      setMsg(`Photo marked as ${status}.`);
     } catch (e) {
       setMsg(e.message);
+      await load();
     }
   }
 
@@ -1846,7 +1848,8 @@ function AdminDashboard({ api, logout, t }) {
       <div className="dashboard-head">
         <div>
           <span className="eyebrow">JAMGHAT ADMIN</span>
-          <h1>Registrations & Approvals</h1>
+          <h1>Verified Shop Registrations</h1>
+          <small style={{ color: 'var(--muted)' }}>Only shops with verified emails are shown for review.</small>
         </div>
         <button className="danger-outline" onClick={logout}>
           <LogOut size={16} />
@@ -1862,8 +1865,7 @@ function AdminDashboard({ api, logout, t }) {
       <div className="tabs">
         {[
           ['registrations', t.adminShops],
-          ['pending-photos', 'Pending Photos'],
-          ['photos', t.shopPhotos]
+          ['pending-photos', 'Pending Photos']
         ].map(x => (
           <button className={tab === x[0] ? 'tab active' : 'tab'} onClick={() => setTab(x[0])} key={x[0]}>
             {x[1]}
@@ -1907,14 +1909,14 @@ function AdminDashboard({ api, logout, t }) {
               </div>
             ))
           ) : (
-            <Empty text="No shops yet." />
+            <Empty text="No pending shops awaiting approval." />
           )}
         </section>
       )}
 
       {tab === 'pending-photos' && (
         <section className="panel">
-          <h2>Shopkeeper Submitted Photos for Approval</h2>
+          <h2>Photos for Approval</h2>
           {pendingPhotos.length ? (
             <div className="photo-grid" style={{ marginTop: '14px' }}>
               {pendingPhotos.map(p => (
@@ -1940,140 +1942,7 @@ function AdminDashboard({ api, logout, t }) {
           )}
         </section>
       )}
-
-      {tab === 'photos' && <AdminPhotos api={api} shops={shops} t={t} />}
     </div>
-  );
-}
-
-function AdminPhotos({ api, shops, t }) {
-  const [shopId, setShopId] = useState('');
-  const [photos, setPhotos] = useState([]);
-  const [preview, setPreview] = useState('');
-  const [caption, setCaption] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const inputRef = useRef(null);
-
-  async function loadPhotos(id) {
-    setPhotos(id ? await api(`/businesses/${id}/photos`) : []);
-  }
-
-  useEffect(() => {
-    loadPhotos(shopId).catch(e => setMsg(e.message));
-  }, [shopId]);
-
-  async function choose(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    try {
-      setPreview(await compressImage(f));
-    } catch {
-      setMsg('Could not read this image.');
-    }
-  }
-
-  async function upload() {
-    if (!preview || !shopId) return;
-    setBusy(true);
-    setMsg('');
-    try {
-      await api(`/businesses/${shopId}/photos`, { method: 'POST', body: JSON.stringify({ image_data: preview, caption }) });
-      setPreview('');
-      setCaption('');
-      if (inputRef.current) inputRef.current.value = '';
-      setMsg('Photo uploaded directly by Admin.');
-      await loadPhotos(shopId);
-    } catch (e) {
-      setMsg(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(id) {
-    if (!confirm('Remove this shop photo?')) return;
-    try {
-      await api(`/business-photos/${id}`, { method: 'DELETE' });
-      await loadPhotos(shopId);
-    } catch (e) {
-      setMsg(e.message);
-    }
-  }
-
-  return (
-    <section className="panel photo-panel">
-      <div className="section-head">
-        <div>
-          <h2>
-            <Camera size={18} /> {t.shopPhotos}
-          </h2>
-        </div>
-      </div>
-      <label className="special-note-label">
-        Shop
-        <select
-          value={shopId}
-          onChange={e => {
-            setShopId(e.target.value);
-            setMsg('');
-          }}
-        >
-          <option value="">Choose a shop…</option>
-          {shops.map(s => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {msg && <div className="notice">{msg}</div>}
-      {shopId && (
-        <div className="photo-uploader">
-          <input
-            ref={inputRef}
-            className="photo-file-input"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={choose}
-          />
-          <div className="inline-form photo-actions">
-            <button type="button" className="secondary small" onClick={() => inputRef.current?.click()}>
-              <Camera size={15} />
-              Choose photo
-            </button>
-            <button type="button" className="primary small" disabled={!preview || busy} onClick={upload}>
-              {busy ? 'Uploading…' : 'Upload photo'}
-            </button>
-          </div>
-          <input
-            className="caption-input"
-            placeholder="Caption (optional)"
-            value={caption}
-            onChange={e => setCaption(e.target.value)}
-            maxLength={180}
-          />
-        </div>
-      )}
-      {shopId &&
-        (photos.length ? (
-          <div className="photo-grid">
-            {photos.map(p => (
-              <figure className="shop-photo" key={p.id}>
-                <img src={p.image_url} alt={p.caption || 'Shop photo'} />
-                <figcaption>
-                  {p.caption && <p>{p.caption}</p>}
-                  <button className="photo-remove" onClick={() => remove(p.id)}>
-                    <X size={14} />
-                  </button>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        ) : (
-          <Empty text={t.noPhotosYet} />
-        ))}
-    </section>
   );
 }
 
