@@ -55,6 +55,7 @@ const i18n = {
     currentLocationText: 'Your current location',
     exploreMap: 'EXPLORE ON MAP',
     liveLocationMap: 'LIVE LOCATION MAP',
+    whoServesArea: 'Who serves this area?',
     whatIsNearby: 'What is nearby & shortest route',
     tapToExplore: 'Tap to explore nearby shops and route',
     tapToHide: 'Tap to hide the map.',
@@ -174,6 +175,7 @@ const i18n = {
     currentLocationText: 'आपकी वर्तमान लोकेशन',
     exploreMap: 'नक्शे पर देखें',
     liveLocationMap: 'लाइव लोकेशन मैप',
+    whoServesArea: 'इस क्षेत्र में कौन सी सेवाएं उपलब्ध हैं?',
     whatIsNearby: 'आस-पास की दुकानें और सबसे छोटा रास्ता',
     tapToExplore: 'नक्शा और रास्ता देखने के लिए टैप करें',
     tapToHide: 'नक्शा छिपाने के लिए टैप करें',
@@ -262,18 +264,6 @@ const i18n = {
     catBooks: 'किताबें व स्टेशनरी'
   }
 };
-
-const getCategoryList = t => [
-  ['ALL', t.catAll, '🏪'],
-  ['Electronics & Appliances', t.catElectronics, '⚡'],
-  ['Daily Needs & Kirana', t.catGrocery, '🛒'],
-  ['Food, Sweets & Bakery', t.catFood, '🍲'],
-  ['Clothing & Fashion', t.catFashion, '👕'],
-  ['Home & Hardware', t.catHardware, '🔧'],
-  ['Personal Care & Salon', t.catSalon, '✂️'],
-  ['Services & Repairs', t.catServices, '🛠️'],
-  ['Books & Stationery', t.catBooks, '📚']
-];
 
 const distText = b => {
   const d = Number(b?.distance);
@@ -475,7 +465,6 @@ function App() {
     setPage('home');
   }
 
-  // Instant opening UX: Immediately show the cached view then fetch extra details in background
   function openBusiness(b) {
     setSelected(b);
     setPage('business');
@@ -807,9 +796,11 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
     const map = L.map(mapContainerRef.current).setView([providerLat, providerLng], 14);
     mapInstanceRef.current = map;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+    // CARTO Voyager Tile Layer: Free, high-bandwidth CDN, no OSM volunteer server 403 blocks
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
     }).addTo(map);
 
     const shopIcon = L.divIcon({
@@ -1805,7 +1796,6 @@ function AdminDashboard({ api, logout, t }) {
     load();
   }, []);
 
-  // Optimistic UI updates immediately eliminate the latency feel for admin clicks
   async function setStatus(id, status) {
     setShops(prev => prev.map(s => s.id === id ? { ...s, verification_status: status } : s));
     try {
