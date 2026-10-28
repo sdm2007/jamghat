@@ -1570,7 +1570,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
           <h1>{biz.name}</h1>
           <p>
             {biz.profile_completeness}
-            {t.profileComplete} · Status: <strong>{biz.verification_status}</strong>
+            {t.profileComplete}
           </p>
           {biz.verification_status === 'EMAIL_UNVERIFIED' && (
             <small style={{ color: 'var(--red)', display: 'block', marginTop: '4px' }}>
@@ -1778,7 +1778,6 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
                     onBlur={e => saveQuantity(i, e.target.value)}
                   />
                 </label>
-                <span className={`stock-button ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</span>
               </div>
             </div>
           ))}
