@@ -798,7 +798,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
   useEffect(() => {
     if (!expanded || !hasProviderCoords || !mapContainerRef.current) return;
 
-    // Destroy existing Leaflet instance before recreating
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
@@ -807,57 +806,58 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
     try {
       const map = L.map(mapContainerRef.current, {
         center: [providerLat, providerLng],
-        zoom: 14,
+        zoom: 15,
+        maxZoom: 19,
         zoomControl: true
       });
       mapInstanceRef.current = map;
 
-      // Esri WorldStreetMap: Reliable, fast global CDN, crisp road details, zero API key required
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
-        maxZoom: 18
+      // OSM France Tile Server: high-detail street level up to zoom 20, free, reliable, no key
+      L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        maxNativeZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+        attribution: '&copy; OpenStreetMap France &mdash; &copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      // Shop Pin
+      // Shop Marker
       const shopIcon = L.divIcon({
         className: 'custom-shop-pin',
-        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:34px;height:34px;display:grid;place-items:center;font-weight:bold;border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:14px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
+        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
       L.marker([providerLat, providerLng], { icon: shopIcon })
         .addTo(map)
         .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
 
-      // Other nearby businesses
+      // Other Nearby Shops
       businesses
         .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
         .forEach(b => {
           const otherIcon = L.divIcon({
             className: 'custom-secondary-pin',
-            html: `<div style="background:#64748b;color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:11px;font-weight:bold;border:1.5px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${escapeHtml(b.name.slice(0, 1))}</div>`,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+            html: `<div style="background:#64748b;color:#fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:1.5px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${escapeHtml(b.name.slice(0, 1))}</div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
           });
           const m = L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 }).addTo(map);
           m.bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
         });
 
-      // Route & Customer Marker
+      // Route & Customer Pin
       if (hasCustomerCoords) {
         const customerIcon = L.divIcon({
           className: 'custom-user-pin',
-          html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:28px;height:28px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
+          html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
         });
 
         L.marker([customerLat, customerLng], { icon: customerIcon })
           .addTo(map)
           .bindPopup(t.currentLocationText);
 
-        // Fetch real road route geometry from OSRM
-        // Note format: lng,lat;lng,lat
         const url = `https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`;
 
         fetch(url)
@@ -865,49 +865,70 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
           .then(data => {
             if (data.routes && data.routes.length > 0) {
               const route = data.routes[0];
-              // Convert GeoJSON [lng, lat] coordinates to Leaflet [lat, lng]
-              const latLngs = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+              const roadCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
 
-              const polyline = L.polyline(latLngs, {
+              // Connect origin pin to start of drivable road
+              const startLeg = [[customerLat, customerLng], roadCoordinates[0]];
+              // Connect end of drivable road to destination shop pin
+              const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
+
+              const featureGroup = L.featureGroup().addTo(map);
+
+              // Solid path for main road navigation
+              L.polyline(roadCoordinates, {
                 color: '#e65f20',
                 weight: 5,
                 opacity: 0.9,
                 lineJoin: 'round'
-              }).addTo(map);
+              }).addTo(featureGroup);
 
-              map.fitBounds(polyline.getBounds(), { padding: [45, 45] });
+              // Dashed walking/access connectors
+              L.polyline(startLeg, {
+                color: '#2563eb',
+                weight: 3.5,
+                dashArray: '5, 7',
+                opacity: 0.85
+              }).addTo(featureGroup);
+
+              L.polyline(endLeg, {
+                color: '#e65f20',
+                weight: 3.5,
+                dashArray: '5, 7',
+                opacity: 0.85
+              }).addTo(featureGroup);
+
+              map.fitBounds(featureGroup.getBounds(), { padding: [50, 50] });
 
               setRouteInfo({
                 distance: `${(route.distance / 1000).toFixed(1)} km`,
                 duration: `${Math.max(1, Math.round(route.duration / 60))} mins`
               });
             } else {
-              // Direct straight connection fallback if OSRM finds no drivable road
+              // Direct straight fallback
               const directLine = L.polyline([[customerLat, customerLng], [providerLat, providerLng]], {
                 color: '#e65f20',
                 weight: 4,
                 dashArray: '6, 8',
                 opacity: 0.8
               }).addTo(map);
-              map.fitBounds(directLine.getBounds(), { padding: [45, 45] });
+              map.fitBounds(directLine.getBounds(), { padding: [50, 50] });
             }
           })
           .catch(() => {
-            map.fitBounds(L.latLngBounds([[customerLat, customerLng], [providerLat, providerLng]]), { padding: [45, 45] });
+            map.fitBounds(L.latLngBounds([[customerLat, customerLng], [providerLat, providerLng]]), { padding: [50, 50] });
           });
       } else {
-        map.setView([providerLat, providerLng], 14);
+        map.setView([providerLat, providerLng], 15);
       }
 
-      // Re-trigger size calculation after rendering to prevent gray gaps on resize
       setTimeout(() => {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize();
         }
-      }, 200);
+      }, 250);
 
     } catch (err) {
-      console.error('Leaflet initialization error:', err);
+      console.error('Map rendering error:', err);
     }
 
     return () => {
