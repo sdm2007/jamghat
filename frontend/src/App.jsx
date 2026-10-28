@@ -807,10 +807,9 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
       const map = L.map(mapContainerRef.current).setView([providerLat, providerLng], 14);
       mapInstanceRef.current = map;
 
-      // CARTO Voyager Tile Layer (Free, reliable, no 403 access blocked errors)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: 'abcd',
+      // 100% Free Wikimedia tiles (No API key, no watermark, fast worldwide CDN)
+      L.tileLayer('https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://wikimediafoundation.org/wiki/Maps_Terms_of_Use">Wikimedia Maps</a>',
         maxZoom: 19
       }).addTo(map);
 
