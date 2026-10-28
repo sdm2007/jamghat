@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
-  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle
+  ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle,
+  Shield, FileText, Cookie, Database, Info, Settings2
 } from 'lucide-react';
 import L from 'leaflet';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 const DEFAULT_LOCATION = { lat: 22.7196, lng: 75.8577, label: 'Bada Bazaar, Indore' };
+const COOKIE_STORAGE_KEY = 'mh-cookie-consent';
 
 const registerCategories = [
   'Electronics & Appliances',
@@ -20,6 +22,14 @@ const registerCategories = [
   'Books & Stationery',
   'Other'
 ];
+
+const LEGAL_TABS = {
+  PRIVACY: 'privacy',
+  TERMS: 'terms',
+  COOKIES: 'cookies',
+  DATA: 'data',
+  ABOUT: 'about'
+};
 
 const i18n = {
   en: {
@@ -353,6 +363,7 @@ function App() {
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
   const [resetToken, setResetToken] = useState(null);
+  const [legalModalTab, setLegalModalTab] = useState(null);
   const watchIdRef = useRef(null);
   const t = i18n[lang] || i18n.en;
 
@@ -443,7 +454,6 @@ function App() {
 
   function chooseCustomerLocation(next) {
     setCustomerLocation(prev => {
-      // Don't cause re-render loops if coordinates shift by less than ~1-2 meters
       if (prev && Math.abs(prev.lat - next.lat) < 0.00003 && Math.abs(prev.lng - next.lng) < 0.00003) {
         return prev;
       }
@@ -459,7 +469,6 @@ function App() {
       return;
     }
 
-    // Toggle off if already actively tracking
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -566,6 +575,7 @@ function App() {
           )}
         </div>
       </header>
+
       {error && (
         <div className="error-banner">
           <AlertTriangle size={16} />
@@ -575,6 +585,7 @@ function App() {
           </button>
         </div>
       )}
+
       {notice && (
         <div className="notice" style={{ margin: '12px 24px 0' }}>
           {notice}
@@ -583,6 +594,7 @@ function App() {
           </button>
         </div>
       )}
+
       <main className="content">
         {page === 'home' && (
           <Home
@@ -617,6 +629,34 @@ function App() {
         )}
         {page === 'admin' && user?.role === 'ADMIN' && <AdminDashboard api={api} logout={logout} t={t} />}
       </main>
+
+      {/* Footer Navigation */}
+      <footer className="site-footer">
+        <div className="footer-links">
+          <button type="button" onClick={() => setLegalModalTab(LEGAL_TABS.ABOUT)}>About Us</button>
+          <span>•</span>
+          <button type="button" onClick={() => setLegalModalTab(LEGAL_TABS.PRIVACY)}>Privacy Policy</button>
+          <span>•</span>
+          <button type="button" onClick={() => setLegalModalTab(LEGAL_TABS.TERMS)}>Terms & Conditions</button>
+          <span>•</span>
+          <button type="button" onClick={() => setLegalModalTab(LEGAL_TABS.COOKIES)}>Cookie Policy</button>
+          <span>•</span>
+          <button type="button" onClick={() => setLegalModalTab(LEGAL_TABS.DATA)}>User Data Policy</button>
+          <span>•</span>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(COOKIE_STORAGE_KEY);
+              window.location.reload();
+            }}
+          >
+            Cookie Settings
+          </button>
+        </div>
+        <small>© 2026 Jamghat. All rights reserved.</small>
+      </footer>
+
+      {/* Floating Bottom Nav */}
       <nav className="bottom-nav">
         <NavButton
           icon={<Compass />}
@@ -644,6 +684,19 @@ function App() {
           </>
         )}
       </nav>
+
+      {/* Floating Cookie Consent */}
+      <CookieBanner onOpenPolicy={tab => setLegalModalTab(tab)} />
+
+      {/* Full Document Viewer Modal */}
+      {legalModalTab && (
+        <LegalModal
+          initialTab={legalModalTab}
+          onClose={() => setLegalModalTab(null)}
+        />
+      )}
+
+      {/* Authentication & Shop Registration Modal */}
       {authMode && (
         <AuthModal
           initialMode={authMode}
@@ -652,6 +705,7 @@ function App() {
           onLogin={login}
           t={t}
           api={api}
+          onOpenPolicy={tab => setLegalModalTab(tab)}
           onResend={async email => api('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) })}
           onRegister={async d => {
             const result = await api('/business/register', { method: 'POST', body: JSON.stringify(d) });
@@ -829,7 +883,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
   const customerLng = Number(customerLocation?.lng);
   const hasCustomerCoords = Number.isFinite(customerLat) && Number.isFinite(customerLng);
 
-  // Initialize Map container once
   useEffect(() => {
     if (!expanded || !hasProviderCoords || !mapContainerRef.current) return;
 
@@ -841,7 +894,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         zoomControl: true
       });
 
-      // OSM France Layer: High-detail road tiles without 403 blocks or zoom cutoffs
       L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         maxZoom: 20,
         maxNativeZoom: 19,
@@ -853,7 +905,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
       layersRef.current.route = L.featureGroup().addTo(map);
       layersRef.current.markers = L.featureGroup().addTo(map);
 
-      // Shop Pin
       const shopIcon = L.divIcon({
         className: 'custom-shop-pin',
         html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
@@ -864,7 +915,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         .addTo(layersRef.current.markers)
         .bindPopup(`<b>${escapeHtml(business.name)}</b><br/>${escapeHtml(business.address || '')}`);
 
-      // Other nearby businesses
       businesses
         .filter(b => b.id !== business.id && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude)))
         .forEach(b => {
@@ -892,12 +942,10 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
     };
   }, [expanded, hasProviderCoords, providerLat, providerLng, businesses, business.id, business.name, business.address]);
 
-  // Update real-time GPS position and recalculate road routing dynamically as the user moves
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !hasProviderCoords || !hasCustomerCoords) return;
 
-    // Update customer marker position
     const customerIcon = L.divIcon({
       className: 'custom-user-pin',
       html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
@@ -913,7 +961,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         .bindPopup(t.currentLocationText);
     }
 
-    // Dynamic OSRM Route Request
     const url = `https://router.project-osrm.org/route/v1/driving/${customerLng},${customerLat};${providerLng},${providerLat}?overview=full&geometries=geojson`;
 
     fetch(url)
@@ -925,11 +972,9 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         if (data.routes && data.routes.length > 0) {
           const route = data.routes[0];
           const roadCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-
           const startLeg = [[customerLat, customerLng], roadCoordinates[0]];
           const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
 
-          // Solid main highway route
           L.polyline(roadCoordinates, {
             color: '#e65f20',
             weight: 5,
@@ -937,7 +982,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
             lineJoin: 'round'
           }).addTo(layersRef.current.route);
 
-          // Access dashed legs connecting actual pins to road entrance
           L.polyline(startLeg, {
             color: '#2563eb',
             weight: 3.5,
@@ -957,7 +1001,6 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
             duration: `${Math.max(1, Math.round(route.duration / 60))} mins`
           });
         } else {
-          // Direct straight connection fallback
           L.polyline([[customerLat, customerLng], [providerLat, providerLng]], {
             color: '#e65f20',
             weight: 4,
@@ -2146,13 +2189,14 @@ function AddItem({ api, businessId, refresh, t }) {
   );
 }
 
-function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegister, onResend, t, api }) {
+function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegister, onResend, t, api, onOpenPolicy }) {
   const [mode, setMode] = useState(initialMode);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [f, setF] = useState({
     email: '',
     password: '',
@@ -2200,6 +2244,11 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
       if (mode === 'login') {
         await onLogin(f.email, f.password);
       } else if (mode === 'register') {
+        if (!agreedToTerms) {
+          setErr('You must agree to the Terms & Conditions and Privacy Policy to register.');
+          setBusy(false);
+          return;
+        }
         await onRegister(f);
       } else if (mode === 'forgot') {
         const res = await api('/auth/forgot-password', {
@@ -2296,6 +2345,33 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
               minLength={8}
               required
             />
+            <label className="check-field" style={{ fontSize: '11px', marginTop: '6px', alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={e => setAgreedToTerms(e.target.checked)}
+                style={{ marginTop: '2px', accentColor: 'var(--brand)' }}
+                required
+              />
+              <span>
+                I agree to the{' '}
+                <button
+                  type="button"
+                  className="inline-link"
+                  onClick={() => onOpenPolicy?.(LEGAL_TABS.TERMS)}
+                >
+                  Terms & Conditions
+                </button>{' '}
+                and confirm I have read the{' '}
+                <button
+                  type="button"
+                  className="inline-link"
+                  onClick={() => onOpenPolicy?.(LEGAL_TABS.PRIVACY)}
+                >
+                  Privacy Policy
+                </button>.
+              </span>
+            </label>
           </>
         )}
 
@@ -2374,6 +2450,471 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
         </button>
       </form>
     </div>
+  );
+}
+
+/* =========================================================================
+   Cookie Consent & Preferences Banner
+   ========================================================================= */
+
+function CookieBanner({ onOpenPolicy }) {
+  const [showBanner, setShowBanner] = useState(false);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [preferences, setPreferences] = useState({
+    essential: true,
+    functional: true,
+    analytics: false
+  });
+
+  useEffect(() => {
+    try {
+      const existing = localStorage.getItem(COOKIE_STORAGE_KEY);
+      if (!existing) setShowBanner(true);
+    } catch {
+      setShowBanner(false);
+    }
+  }, []);
+
+  const saveConsent = (prefs) => {
+    try {
+      localStorage.setItem(COOKIE_STORAGE_KEY, JSON.stringify({
+        ...prefs,
+        timestamp: new Date().toISOString()
+      }));
+    } catch {}
+    setShowBanner(false);
+    setShowCustomizer(false);
+  };
+
+  if (!showBanner) return null;
+
+  return (
+    <>
+      <aside className="cookie-banner-panel" aria-label="Cookie consent banner">
+        <div className="cookie-banner-content">
+          <div className="cookie-banner-icon">
+            <Cookie size={22} />
+          </div>
+          <div className="cookie-banner-text">
+            <b>We respect your privacy & data choices</b>
+            <p>
+              Jamghat uses essential cookies to keep you signed in securely and remember your location settings.
+              Learn more in our{' '}
+              <button type="button" className="inline-link" onClick={() => onOpenPolicy(LEGAL_TABS.COOKIES)}>
+                Cookie Policy
+              </button>{' '}
+              and{' '}
+              <button type="button" className="inline-link" onClick={() => onOpenPolicy(LEGAL_TABS.PRIVACY)}>
+                Privacy Policy
+              </button>.
+            </p>
+          </div>
+        </div>
+        <div className="cookie-banner-actions">
+          <button type="button" className="secondary small" onClick={() => setShowCustomizer(true)}>
+            <Settings2 size={14} /> Customize
+          </button>
+          <button
+            type="button"
+            className="secondary small"
+            onClick={() => saveConsent({ essential: true, functional: false, analytics: false })}
+          >
+            Reject Optional
+          </button>
+          <button
+            type="button"
+            className="primary small"
+            onClick={() => saveConsent({ essential: true, functional: true, analytics: true })}
+          >
+            <Check size={14} /> Accept All
+          </button>
+        </div>
+      </aside>
+
+      {showCustomizer && (
+        <div className="modal-backdrop" onClick={() => setShowCustomizer(false)}>
+          <div className="auth-modal cookie-customizer-modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowCustomizer(false)}>
+              <X size={18} />
+            </button>
+            <span className="eyebrow">PREFERENCES</span>
+            <h2>Cookie Settings</h2>
+            <p>Choose which technologies you want to permit on this device.</p>
+
+            <div className="cookie-toggle-row">
+              <div>
+                <b>Strictly Essential</b>
+                <small>Session tokens, CSRF protection, and security headers. Cannot be disabled.</small>
+              </div>
+              <input type="checkbox" checked disabled />
+            </div>
+
+            <div className="cookie-toggle-row">
+              <div>
+                <b>Functional & Location</b>
+                <small>Preserves UI language, light/dark theme, and cached coordinates for distance calculations.</small>
+              </div>
+              <input
+                type="checkbox"
+                checked={preferences.functional}
+                onChange={e => setPreferences(p => ({ ...p, functional: e.target.checked }))}
+              />
+            </div>
+
+            <div className="cookie-toggle-row">
+              <div>
+                <b>Performance & Telemetry</b>
+                <small>Anonymous error reporting to help resolve broken search and map listings.</small>
+              </div>
+              <input
+                type="checkbox"
+                checked={preferences.analytics}
+                onChange={e => setPreferences(p => ({ ...p, analytics: e.target.checked }))}
+              />
+            </div>
+
+            <button type="button" className="primary full" onClick={() => saveConsent(preferences)}>
+              Save Preferences
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* =========================================================================
+   Legal & Compliance Documentation Viewer Modal
+   ========================================================================= */
+
+function LegalModal({ initialTab = LEGAL_TABS.PRIVACY, onClose }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  return (
+    <div className="modal-backdrop legal-modal-backdrop" onClick={onClose}>
+      <div className="legal-modal-container" onClick={e => e.stopPropagation()}>
+        <div className="legal-modal-header">
+          <div className="legal-header-titles">
+            <span className="eyebrow">JAMGHAT COMPLIANCE & LEGAL</span>
+            <h2>Documentation & Policies</h2>
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close legal view">
+            ✕
+          </button>
+        </div>
+
+        <div className="legal-modal-nav">
+          <button
+            className={`legal-tab-btn ${activeTab === LEGAL_TABS.PRIVACY ? 'active' : ''}`}
+            onClick={() => setActiveTab(LEGAL_TABS.PRIVACY)}
+          >
+            <Shield size={15} /> Privacy Policy
+          </button>
+          <button
+            className={`legal-tab-btn ${activeTab === LEGAL_TABS.TERMS ? 'active' : ''}`}
+            onClick={() => setActiveTab(LEGAL_TABS.TERMS)}
+          >
+            <FileText size={15} /> Terms & Conditions
+          </button>
+          <button
+            className={`legal-tab-btn ${activeTab === LEGAL_TABS.COOKIES ? 'active' : ''}`}
+            onClick={() => setActiveTab(LEGAL_TABS.COOKIES)}
+          >
+            <Cookie size={15} /> Cookie Policy
+          </button>
+          <button
+            className={`legal-tab-btn ${activeTab === LEGAL_TABS.DATA ? 'active' : ''}`}
+            onClick={() => setActiveTab(LEGAL_TABS.DATA)}
+          >
+            <Database size={15} /> User Data Policy
+          </button>
+          <button
+            className={`legal-tab-btn ${activeTab === LEGAL_TABS.ABOUT ? 'active' : ''}`}
+            onClick={() => setActiveTab(LEGAL_TABS.ABOUT)}
+          >
+            <Info size={15} /> About Us
+          </button>
+        </div>
+
+        <div className="legal-modal-body">
+          {activeTab === LEGAL_TABS.PRIVACY && <PrivacyPolicyContent />}
+          {activeTab === LEGAL_TABS.TERMS && <TermsContent />}
+          {activeTab === LEGAL_TABS.COOKIES && <CookiePolicyContent />}
+          {activeTab === LEGAL_TABS.DATA && <UserDataPolicyContent />}
+          {activeTab === LEGAL_TABS.ABOUT && <AboutUsContent />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrivacyPolicyContent() {
+  return (
+    <article className="legal-article">
+      <h1>Privacy Policy — Jamghat</h1>
+      <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
+
+      <section>
+        <h3>1. About This Policy</h3>
+        <p>Jamghat is a local business discovery platform that helps people discover shops and services, compare listed prices, view business hours, and contact local businesses.</p>
+        <p>This Privacy Policy explains how Jamghat collects, uses, stores, shares, and protects personal data when users visit or use our website.</p>
+        <p>We aim to handle personal data in accordance with applicable Indian law, including the Digital Personal Data Protection Act, 2023 (DPDP Act) and the Digital Personal Data Protection Rules, 2025, as and when their relevant provisions apply.</p>
+      </section>
+
+      <section>
+        <h3>2. Information We Collect</h3>
+        <h4>A. Information from Visitors</h4>
+        <ul>
+          <li>Basic technical information, such as IP address, browser type, device information, and server logs, where collected.</li>
+          <li>Location information only when a location-related feature requests or uses it.</li>
+          <li>Cookie and preference information, according to the site's actual cookie configuration.</li>
+        </ul>
+        <p>Visitors can browse public business listings without creating an account.</p>
+
+        <h4>B. Business Owner Information</h4>
+        <p>When a business owner registers or manages a listing, we may collect:</p>
+        <ul>
+          <li>Name and email address.</li>
+          <li>Login credentials and authentication information.</li>
+          <li>Business name, address, opening hours, and contact details.</li>
+          <li>Products or services, stock details, and listed prices.</li>
+          <li>Business photographs and other information submitted for the listing.</li>
+        </ul>
+        <p>Business owners must provide accurate information and should only submit information they are authorised to publish.</p>
+
+        <h4>C. Information Collected Automatically</h4>
+        <p>We may process technical logs, security events, session information, and error reports to operate the website, maintain security, and troubleshoot issues. We do not claim to collect analytics, advertising profiles, or precise location data unless the relevant functionality is actually enabled.</p>
+      </section>
+
+      <section>
+        <h3>3. How We Use Personal Data</h3>
+        <ul>
+          <li>Display and maintain business listings.</li>
+          <li>Allow business owners to register, verify their email, sign in, and manage listings.</li>
+          <li>Show business hours, products, services, and prices.</li>
+          <li>Enable visitors to contact listed businesses.</li>
+          <li>Compare prices for matching listed products.</li>
+          <li>Maintain sessions and prevent unauthorised access.</li>
+          <li>Respond to support requests and complaints.</li>
+          <li>Meet applicable legal obligations.</li>
+        </ul>
+        <p>We will not use personal data for unrelated purposes without an appropriate lawful basis.</p>
+      </section>
+
+      <section>
+        <h3>4. Public Business Information</h3>
+        <p>Business listings may be visible to anyone visiting Jamghat. Information such as a business name, address, contact details, hours, prices, and uploaded business photographs may be publicly accessible.</p>
+        <p>Business owners should not submit personal or confidential information that they do not intend to make public. Public visibility of a business listing does not mean that private account credentials or authentication tokens are public.</p>
+      </section>
+
+      <section>
+        <h3>5. Cookies and Session Management</h3>
+        <p>Jamghat uses an HTTP-only session cookie for authentication. This cookie helps maintain a business owner's login session. Essential cookies may be used for security and core website functions. Optional analytics or advertising cookies should only be activated if those technologies are implemented and the required consent has been obtained.</p>
+        <p>Please read our Cookie Policy for details.</p>
+      </section>
+
+      <section>
+        <h3>6. Third-Party Services</h3>
+        <p>Jamghat's infrastructure may involve:</p>
+        <ul>
+          <li>Supabase/PostgreSQL for database and storage services.</li>
+          <li>An email service provider for business-owner email verification.</li>
+          <li>Hosting and infrastructure providers (e.g. Render).</li>
+          <li>Google Maps, if the optional map integration is enabled.</li>
+        </ul>
+        <p>These providers may process information as necessary to provide their services. Public business photographs may be accessible through public image URLs. We do not publish database passwords, authentication secrets, or private account credentials.</p>
+      </section>
+
+      <section>
+        <h3>7. Sharing of Personal Data</h3>
+        <p>We may share relevant information with service providers supporting website operations, where legally permitted or required, or where necessary to respond to valid legal requests. Any sharing must be consistent with applicable law and the purposes described in this policy.</p>
+      </section>
+
+      <section>
+        <h3>8. Data Retention</h3>
+        <p>We retain personal data only for as long as reasonably necessary for the stated purposes or as required by applicable law. When information is no longer required, it should be deleted or anonymised where appropriate and legally permitted.</p>
+      </section>
+
+      <section>
+        <h3>9. Security</h3>
+        <p>We use appropriate technical and organisational measures to protect personal data against unauthorised access, disclosure, alteration, loss, or misuse, including access controls, secure server-side credential handling, protected environment secrets, and monitoring. No internet service can guarantee absolute security.</p>
+      </section>
+
+      <section>
+        <h3>10. Your Privacy Rights</h3>
+        <p>Subject to applicable law, you may be entitled to request information about your personal data, request correction or updating of inaccurate information, request erasure of personal data, withdraw consent, or raise a grievance.</p>
+      </section>
+
+      <section>
+        <h3>11. Children's Data</h3>
+        <p>Jamghat is not intended to encourage children to disclose unnecessary personal information. Where applicable law requires verifiable parental consent or other safeguards, we will implement the relevant requirements before processing.</p>
+      </section>
+
+      <section>
+        <h3>12. Personal Data Breaches</h3>
+        <p>If a personal data breach occurs, Jamghat will take appropriate steps to investigate, contain, and address it and provide notifications to affected individuals and authorities where required by applicable law.</p>
+      </section>
+
+      <section>
+        <h3>13. Contact and Grievances</h3>
+        <div className="legal-contact-card">
+          <p><strong>Platform:</strong> Jamghat</p>
+          <p><strong>Website:</strong> <a href="https://jamghat.thesrock.in/" target="_blank" rel="noreferrer">https://jamghat.thesrock.in/</a></p>
+          <p><strong>Privacy Contact:</strong> contact@thesrock.in</p>
+          <p><strong>Grievance Officer:</strong> Grievance Redressal Team, Jamghat</p>
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function TermsContent() {
+  return (
+    <article className="legal-article">
+      <h1>Terms and Conditions — Jamghat</h1>
+      <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
+
+      <section>
+        <h3>1. Introduction</h3>
+        <p>Welcome to Jamghat. These Terms and Conditions govern your access to and use of the Jamghat website at <a href="https://jamghat.thesrock.in/">https://jamghat.thesrock.in/</a>. By accessing or using Jamghat, you agree to comply with these Terms.</p>
+      </section>
+
+      <section>
+        <h3>2. About Jamghat</h3>
+        <p>Jamghat provides a platform for discovering local businesses and their publicly displayed information. Unless expressly stated otherwise, Jamghat acts as a business discovery and information platform. A business listing does not mean that Jamghat owns, operates, endorses, or directly sells the listed products or services.</p>
+      </section>
+
+      <section>
+        <h3>3. Eligibility and User Accounts</h3>
+        <p>Visitors may browse publicly available listings without registering. Business owners who create accounts must provide accurate information, use a valid email address, keep login credentials confidential, and notify the platform of any unauthorised access.</p>
+      </section>
+
+      <section>
+        <h3>4. Business Listings and Information</h3>
+        <p>Business owners are responsible for ensuring that their submitted information is accurate, lawful, and up to date. Prices and availability may change without notice. Users should confirm important details directly with the relevant business before making a purchase or visiting.</p>
+      </section>
+
+      <section>
+        <h3>5. Price Comparisons</h3>
+        <p>Price comparisons are provided for informational purposes. Differences in product quality, brand, condition, or taxes may affect comparability. Jamghat does not guarantee that every listed price is the lowest or current at the moment of purchase.</p>
+      </section>
+
+      <section>
+        <h3>6. Relationship with Local Businesses</h3>
+        <p>Any purchase, booking, payment, delivery, or warranty is strictly between the user and the relevant business. The business is responsible for fulfilling orders and consumer obligations.</p>
+      </section>
+
+      <section>
+        <h3>7. Acceptable Use</h3>
+        <p>You agree not to submit false or misleading information, impersonate individuals or businesses, upload infringing content, attempt unauthorised system access, or use automated scraping without authorisation.</p>
+      </section>
+
+      <section>
+        <h3>8. User-Submitted Content</h3>
+        <p>Users and business owners retain rights to their submitted content, granting Jamghat a non-exclusive licence to host and display it to operate the platform.</p>
+      </section>
+
+      <section>
+        <h3>9. Governing Law</h3>
+        <p>These Terms are governed by the laws of India. Disputes will be handled by the competent courts or consumer forums having jurisdiction.</p>
+      </section>
+
+      <section>
+        <h3>10. Contact Details</h3>
+        <div className="legal-contact-card">
+          <p><strong>Platform:</strong> Jamghat</p>
+          <p><strong>Website:</strong> https://jamghat.thesrock.in/</p>
+          <p><strong>Contact Email:</strong> contact@thesrock.in</p>
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function CookiePolicyContent() {
+  return (
+    <article className="legal-article">
+      <h1>Cookie Policy — Jamghat</h1>
+      <p className="legal-meta">Effective Date: 28 October 2026</p>
+
+      <section>
+        <h3>1. What Are Cookies?</h3>
+        <p>Cookies and browser local storage are small data files stored on your device that help maintain sessions, remember user preferences, and protect accounts.</p>
+      </section>
+
+      <section>
+        <h3>2. Cookies Used by Jamghat</h3>
+        <ul>
+          <li><strong>Essential Cookies / Storage:</strong> Required for secure sign-in (<code>jg_session</code> HTTP-only cookie), theme choices (<code>mh-theme</code>), and language selections (<code>mh-lang</code>).</li>
+          <li><strong>Preference Cookies / Storage:</strong> Used to save chosen map coordinates (<code>mh-location</code>) and store cookie consent choices (<code>mh-cookie-consent</code>).</li>
+          <li><strong>Analytics & Marketing:</strong> Jamghat currently does not deploy non-consensual tracking or third-party ad profiling cookies.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>3. Managing Cookie Choices</h3>
+        <p>You can adjust your cookie preferences at any time using the Cookie Settings trigger in the site footer or through your web browser controls.</p>
+      </section>
+    </article>
+  );
+}
+
+function UserDataPolicyContent() {
+  return (
+    <article className="legal-article">
+      <h1>User Data Policy — Jamghat</h1>
+      <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
+
+      <section>
+        <h3>1. Introduction & Regulatory Alignment</h3>
+        <p>Jamghat adheres to fair information practices under the Digital Personal Data Protection Act, 2023 (DPDP Act) and the DPDP Rules, 2025.</p>
+      </section>
+
+      <section>
+        <h3>2. Purpose Limitation</h3>
+        <p>We process personal information strictly to operate local listings, facilitate user-to-business discovery, verify genuine business ownership, and ensure platform security.</p>
+      </section>
+
+      <section>
+        <h3>3. Data Erasure</h3>
+        <p>Business owners may permanently delete their listing and account via the Dashboard at any time. Once initiated, all associated catalog items, database mappings, and photos are permanently purged.</p>
+      </section>
+    </article>
+  );
+}
+
+function AboutUsContent() {
+  return (
+    <article className="legal-article">
+      <h1>About Us — Jamghat</h1>
+      <p className="legal-meta" style={{ color: 'var(--brand)', fontWeight: 700 }}>
+        Discover Local. Compare Smartly. Support Local Businesses.
+      </p>
+
+      <section>
+        <p>Jamghat is a hyperlocal business discovery platform created to make finding shops, products, and services simpler for everyone in the neighbourhood.</p>
+        <p>We believe that local businesses are the heartbeat of every community. Finding the right shop, checking live availability, and verifying opening hours can be frustrating. Jamghat brings this verified local data onto one screen.</p>
+      </section>
+
+      <section>
+        <h3>Why Jamghat?</h3>
+        <ul>
+          <li><strong>Easy Discovery:</strong> Find neighborhood shops and home service providers.</li>
+          <li><strong>Price Transparency:</strong> Benchmark listed product prices across multiple local sellers.</li>
+          <li><strong>Digital Visibility:</strong> Provide independent storefronts with an online catalog and photo gallery.</li>
+          <li><strong>Community Support:</strong> Empower local trade without complex commission markups.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Project Information</h3>
+        <div className="legal-contact-card">
+          <p><strong>Platform:</strong> Jamghat</p>
+          <p><strong>Website:</strong> <a href="https://jamghat.thesrock.in/" target="_blank" rel="noreferrer">https://jamghat.thesrock.in/</a></p>
+          <p><strong>Open Source:</strong> <a href="https://github.com/sdm2007/jamghat" target="_blank" rel="noreferrer">github.com/sdm2007/jamghat <ExternalLink size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /></a></p>
+        </div>
+      </section>
+    </article>
   );
 }
 
