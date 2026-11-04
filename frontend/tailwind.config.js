@@ -7,17 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        saffron: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
+        forest: {
+          DEFAULT: '#004643',
+          dark: '#001e1d',
         },
-        soil: {
-          800: '#292524',
-          900: '#1c1917',
+        sage: '#abd1c6',
+        gold: {
+          DEFAULT: '#f9bc60',
+          hover: '#e8a94b',
+        },
+        coral: '#e16162',
+        surface: {
+          DEFAULT: '#e8e4e6',
+          headline: '#fffffe',
         }
       }
     },

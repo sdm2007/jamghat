@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Search, MapPin, Phone, ArrowLeft, Plus, Compass, Camera, X, Store, Clock3, Moon, Sun, Monitor,
+  Search, MapPin, Phone, ArrowLeft, Plus, Compass, Camera, X, Store, Clock3,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
   ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle,
   Shield, FileText, Cookie, Database, Info, Settings2
@@ -341,7 +341,6 @@ function escapeHtml(value) {
 }
 
 function App() {
-  const [theme, setTheme] = useState(localStorage.getItem('mh-theme') || 'system');
   const [lang, setLang] = useState(localStorage.getItem('mh-lang') || 'en');
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('home');
@@ -366,11 +365,6 @@ function App() {
   const [legalModalTab, setLegalModalTab] = useState(null);
   const watchIdRef = useRef(null);
   const t = i18n[lang] || i18n.en;
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem('mh-theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem('mh-lang', lang);
@@ -539,7 +533,7 @@ function App() {
             setSelected(null);
           }}
         >
-          <span className="brand-mark" style={{ background: 'transparent', padding: 0 }}>
+          <span className="brand-mark">
             <img
               src="/logo.png"
               alt="Jamghat"
@@ -558,7 +552,6 @@ function App() {
           <button className="icon-btn" title="Language" onClick={() => setLang(x => (x === 'en' ? 'hi' : 'en'))}>
             {lang === 'en' ? 'हिन्दी' : 'EN'}
           </button>
-          <ThemeButton theme={theme} setTheme={setTheme} />
           {user ? (
             <>
               <button className="primary small" onClick={() => setPage(homeOfUser)}>
@@ -569,7 +562,7 @@ function App() {
               </button>
             </>
           ) : (
-            <button className="secondary small" onClick={() => setAuthMode('login')}>
+            <button className="primary small" onClick={() => setAuthMode('login')}>
               {t.login}
             </button>
           )}
@@ -656,7 +649,7 @@ function App() {
         <small>© 2026 Jamghat. All rights reserved.</small>
       </footer>
 
-      {/* Floating Bottom Nav */}
+      {/* Floating Bottom Navigation */}
       <nav className="bottom-nav">
         <NavButton
           icon={<Compass />}
@@ -723,18 +716,6 @@ function NavButton({ icon, label, active, onClick }) {
     <button className={active ? 'nav-btn active' : 'nav-btn'} onClick={onClick}>
       {React.cloneElement(icon, { size: 20 })}
       <span>{label}</span>
-    </button>
-  );
-}
-
-function ThemeButton({ theme, setTheme }) {
-  return (
-    <button
-      className="icon-btn"
-      title="Theme"
-      onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
-    >
-      {theme === 'dark' ? <Moon size={17} /> : theme === 'light' ? <Sun size={17} /> : <Monitor size={17} />}
     </button>
   );
 }
@@ -810,7 +791,7 @@ function Home({
               {businesses.length} {t.localOptions}
             </small>
           </div>
-          <SlidersHorizontal size={18} />
+          <SlidersHorizontal size={18} color="#abd1c6" />
         </div>
         {loading ? (
           <Loading text={t.loadingInfo} />
@@ -833,7 +814,7 @@ function LocationBar({ location, locating, onLocate, message, t }) {
   const lat = location?.lat || DEFAULT_LOCATION.lat;
   const lng = location?.lng || DEFAULT_LOCATION.lng;
   return (
-    <section className="location-bar panel" style={{ margin: '4px 0' }}>
+    <section className="location-bar" style={{ margin: '4px 0' }}>
       <div className="location-main">
         <div className="location-icon">
           <Navigation size={18} />
@@ -863,7 +844,7 @@ function LocationBar({ location, locating, onLocate, message, t }) {
           <ExternalLink size={15} />
         </a>
       </div>
-      {message && <small className="location-message">{message}</small>}
+      {message && <small className="location-message" style={{ width: '100%', color: 'var(--muted)', marginTop: '4px' }}>{message}</small>}
     </section>
   );
 }
@@ -898,7 +879,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         maxZoom: 20,
         maxNativeZoom: 19,
         subdomains: ['a', 'b', 'c'],
-        attribution: '&copy; OpenStreetMap France &mdash; &copy; OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap France'
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -907,7 +888,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
       const shopIcon = L.divIcon({
         className: 'custom-shop-pin',
-        html: `<div style="background:#e65f20;color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
+        html: `<div style="background:#f9bc60;color:#001e1d;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid #001e1d;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
@@ -920,11 +901,11 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         .forEach(b => {
           const otherIcon = L.divIcon({
             className: 'custom-secondary-pin',
-            html: `<div style="background:#64748b;color:#fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:1.5px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${escapeHtml(b.name.slice(0, 1))}</div>`,
+            html: `<div style="background:#abd1c6;color:#001e1d;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:1.5px solid #001e1d;">${escapeHtml(b.name.slice(0, 1))}</div>`,
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           });
-          L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.75 })
+          L.marker([Number(b.latitude), Number(b.longitude)], { icon: otherIcon, opacity: 0.85 })
             .addTo(layersRef.current.markers)
             .bindPopup(`<b>${escapeHtml(b.name)}</b><br/>${escapeHtml(b.category)}`);
         });
@@ -948,7 +929,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
     const customerIcon = L.divIcon({
       className: 'custom-user-pin',
-      html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);">You</div>`,
+      html: `<div style="background:#004643;color:#fffffe;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid #f9bc60;">You</div>`,
       iconSize: [26, 26],
       iconAnchor: [13, 13]
     });
@@ -976,37 +957,30 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
           const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
 
           L.polyline(roadCoordinates, {
-            color: '#e65f20',
+            color: '#004643',
             weight: 5,
             opacity: 0.9,
             lineJoin: 'round'
           }).addTo(layersRef.current.route);
 
           L.polyline(startLeg, {
-            color: '#2563eb',
+            color: '#f9bc60',
             weight: 3.5,
             dashArray: '5, 7',
-            opacity: 0.85
+            opacity: 0.95
           }).addTo(layersRef.current.route);
 
           L.polyline(endLeg, {
-            color: '#e65f20',
+            color: '#f9bc60',
             weight: 3.5,
             dashArray: '5, 7',
-            opacity: 0.85
+            opacity: 0.95
           }).addTo(layersRef.current.route);
 
           setRouteInfo({
             distance: `${(route.distance / 1000).toFixed(1)} km`,
             duration: `${Math.max(1, Math.round(route.duration / 60))} mins`
           });
-        } else {
-          L.polyline([[customerLat, customerLng], [providerLat, providerLng]], {
-            color: '#e65f20',
-            weight: 4,
-            dashArray: '6, 8',
-            opacity: 0.8
-          }).addTo(layersRef.current.route);
         }
       })
       .catch(() => {});
@@ -1041,7 +1015,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
       {expanded && (
         <>
-          <div ref={mapContainerRef} style={{ height: '360px', marginTop: '10px', borderRadius: '15px', zIndex: 1 }} />
+          <div ref={mapContainerRef} style={{ height: '360px', marginTop: '10px', borderRadius: '15px', zIndex: 1, border: '2px solid #001e1d' }} />
           <div
             className={
               !hasCustomerCoords
@@ -1167,7 +1141,7 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
                   {Number(b.visit_charge) > 0 ? `${t.visit} ₹${Number(b.visit_charge).toLocaleString('en-IN')}` : t.contactForPrice}
                 </strong>
               </div>
-              <div className="service-tags">
+              <div className="service-tags" style={{ marginTop: '8px', display: 'flex', gap: '5px' }}>
                 <span>{b.is_open ? t.availableNow : t.currentlyClosed}</span>
                 {b.emergency_service ? <span>{t.emergency}</span> : null}
                 {b.appointment_required ? <span>{t.appointment}</span> : null}
@@ -1175,6 +1149,7 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
               <button
                 type="button"
                 className="details-btn"
+                style={{ marginTop: '8px' }}
                 onClick={e => {
                   e.stopPropagation();
                   openBusiness(b);
@@ -1313,7 +1288,7 @@ function Business({
       </div>
 
       {business.home_visit ? (
-        <section className="service-detail-panel panel">
+        <section className="panel">
           <div className="section-head">
             <div>
               <span className="eyebrow">{t.catServices.toUpperCase()}</span>
@@ -1321,7 +1296,7 @@ function Business({
             </div>
             <MapPin size={18} />
           </div>
-          <div className="service-detail-grid">
+          <div className="service-detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '12px 0' }}>
             <div>
               <small>{t.serviceArea}</small>
               <b>{business.service_area || t.areaNotSpecified}</b>
@@ -1616,12 +1591,12 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
             {t.profileComplete}
           </p>
           {biz.verification_status === 'EMAIL_UNVERIFIED' && (
-            <small style={{ color: 'var(--red)', display: 'block', marginTop: '4px' }}>
+            <small style={{ color: 'var(--tertiary)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
               Action required: Check your inbox and click the verification link to submit your shop for activation.
             </small>
           )}
           {biz.verification_status === 'PENDING' && (
-            <small style={{ color: 'var(--brand)', display: 'block', marginTop: '4px' }}>
+            <small style={{ color: 'var(--button-text)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
               Your email is verified! Your listing is now in queue awaiting admin activation.
             </small>
           )}
@@ -1706,7 +1681,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
       )}
 
       {tab === 'photos' && (
-        <section className="panel photo-panel">
+        <section className="panel">
           <div className="section-head">
             <div>
               <h2><Camera size={18} /> {t.shopPhotos}</h2>
@@ -1716,12 +1691,12 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
           <div className="photo-uploader">
             <input
               ref={photoInputRef}
-              className="photo-file-input"
+              style={{ display: 'none' }}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handlePhotoChoose}
             />
-            <div className="inline-form photo-actions">
+            <div className="inline-form">
               <button type="button" className="secondary small" onClick={() => photoInputRef.current?.click()}>
                 <Camera size={15} />
                 Choose photo
@@ -1744,7 +1719,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
                 <img src={p.image_url} alt={p.caption || 'Shop photo'} />
                 <figcaption>
                   <p>{p.caption || 'Shop photo'}</p>
-                  <span style={{ fontSize: '10px', color: p.status === 'VISIBLE' ? 'var(--green)' : 'var(--brand)' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: p.status === 'VISIBLE' ? 'var(--green)' : 'var(--button-text)' }}>
                     {p.status === 'VISIBLE' ? 'Approved (Live)' : 'Pending Review'}
                   </span>
                 </figcaption>
@@ -1771,7 +1746,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
               Email address
               <input type="email" value={accountEmail} onChange={e => setAccountEmail(e.target.value)} required />
             </label>
-            <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+            <hr style={{ border: 0, borderTop: '1.5px solid var(--border)', margin: '8px 0' }} />
             <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Change Password</span>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
               Current Password
@@ -1806,11 +1781,12 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
                 </small>
               </div>
               <div className="inventory-controls">
-                <label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
                   <span>{t.itemsCount}</span>
                   <input
                     type="number"
                     min="0"
+                    style={{ width: '70px', padding: '5px', borderRadius: '6px', border: '1.5px solid var(--stroke)' }}
                     value={i.quantity ?? 0}
                     onChange={e =>
                       setBiz({
@@ -1836,8 +1812,8 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
               </div>
               <CalendarClock size={20} />
             </div>
-            <label className="check-field closed-today-toggle">
-              <input type="checkbox" checked={closedToday} onChange={e => setClosedToday(e.target.checked)} />
+            <label className="check-field closed-today-toggle" style={{ margin: '12px 0' }}>
+              <input type="checkbox" checked={closedToday} onChange={e => setClosedToday(e.target.checked)} style={{ accentColor: 'var(--highlight)' }} />
               <span>
                 <b>{t.closedToday}</b>
               </span>
@@ -2017,7 +1993,7 @@ function AdminDashboard({ api, logout, t }) {
                   <b>{s.name}</b>
                   <small>
                     {s.category} · {s.phone || 'no phone'} · {t.adminStatus}:{' '}
-                    <strong style={{ color: s.verification_status === 'VERIFIED' ? 'var(--green)' : 'var(--brand)' }}>
+                    <strong style={{ color: s.verification_status === 'VERIFIED' ? 'var(--green)' : 'var(--tertiary)' }}>
                       {s.verification_status}
                     </strong>
                   </small>
@@ -2083,7 +2059,7 @@ function AdminDashboard({ api, logout, t }) {
 
 function PhotoGallery({ photos, name, t }) {
   return (
-    <section className="panel photo-panel">
+    <section className="panel">
       <div className="section-head">
         <div>
           <h2>
@@ -2345,12 +2321,12 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
               minLength={8}
               required
             />
-            <label className="check-field" style={{ fontSize: '11px', marginTop: '6px', alignItems: 'flex-start' }}>
+            <label className="check-field" style={{ fontSize: '11px', marginTop: '6px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
               <input
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={e => setAgreedToTerms(e.target.checked)}
-                style={{ marginTop: '2px', accentColor: 'var(--brand)' }}
+                style={{ marginTop: '2px', accentColor: 'var(--highlight)' }}
                 required
               />
               <span>
@@ -2453,10 +2429,6 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
   );
 }
 
-/* =========================================================================
-   Cookie Consent & Preferences Banner
-   ========================================================================= */
-
 function CookieBanner({ onOpenPolicy }) {
   const [showBanner, setShowBanner] = useState(false);
   const [showCustomizer, setShowCustomizer] = useState(false);
@@ -2491,7 +2463,7 @@ function CookieBanner({ onOpenPolicy }) {
   return (
     <>
       <aside className="cookie-banner-panel" aria-label="Cookie consent banner">
-        <div className="cookie-banner-content">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="cookie-banner-icon">
             <Cookie size={22} />
           </div>
@@ -2510,7 +2482,7 @@ function CookieBanner({ onOpenPolicy }) {
             </p>
           </div>
         </div>
-        <div className="cookie-banner-actions">
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button type="button" className="secondary small" onClick={() => setShowCustomizer(true)}>
             <Settings2 size={14} /> Customize
           </button>
@@ -2552,7 +2524,7 @@ function CookieBanner({ onOpenPolicy }) {
             <div className="cookie-toggle-row">
               <div>
                 <b>Functional & Location</b>
-                <small>Preserves UI language, light/dark theme, and cached coordinates for distance calculations.</small>
+                <small>Preserves UI language and cached coordinates for distance calculations.</small>
               </div>
               <input
                 type="checkbox"
@@ -2583,10 +2555,6 @@ function CookieBanner({ onOpenPolicy }) {
   );
 }
 
-/* =========================================================================
-   Legal & Compliance Documentation Viewer Modal
-   ========================================================================= */
-
 function LegalModal({ initialTab = LEGAL_TABS.PRIVACY, onClose }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -2595,7 +2563,7 @@ function LegalModal({ initialTab = LEGAL_TABS.PRIVACY, onClose }) {
       <div className="legal-modal-container" onClick={e => e.stopPropagation()}>
         <div className="legal-modal-header">
           <div className="legal-header-titles">
-            <span className="eyebrow">JAMGHAT COMPLIANCE & LEGAL</span>
+            <span className="eyebrow" style={{ color: 'var(--button-text)' }}>JAMGHAT COMPLIANCE & LEGAL</span>
             <h2>Documentation & Policies</h2>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close legal view">
@@ -2653,113 +2621,34 @@ function PrivacyPolicyContent() {
     <article className="legal-article">
       <h1>Privacy Policy — Jamghat</h1>
       <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
-
       <section>
         <h3>1. About This Policy</h3>
         <p>Jamghat is a local business discovery platform that helps people discover shops and services, compare listed prices, view business hours, and contact local businesses.</p>
         <p>This Privacy Policy explains how Jamghat collects, uses, stores, shares, and protects personal data when users visit or use our website.</p>
-        <p>We aim to handle personal data in accordance with applicable Indian law, including the Digital Personal Data Protection Act, 2023 (DPDP Act) and the Digital Personal Data Protection Rules, 2025, as and when their relevant provisions apply.</p>
+        <p>We aim to handle personal data in accordance with applicable Indian law, including the Digital Personal Data Protection Act, 2023 (DPDP Act) and the Digital Personal Data Protection Rules, 2025.</p>
       </section>
-
       <section>
         <h3>2. Information We Collect</h3>
         <h4>A. Information from Visitors</h4>
         <ul>
-          <li>Basic technical information, such as IP address, browser type, device information, and server logs, where collected.</li>
+          <li>Technical information, such as IP address, browser type, device information, and server logs.</li>
           <li>Location information only when a location-related feature requests or uses it.</li>
-          <li>Cookie and preference information, according to the site's actual cookie configuration.</li>
+          <li>Cookie and preference information.</li>
         </ul>
-        <p>Visitors can browse public business listings without creating an account.</p>
-
         <h4>B. Business Owner Information</h4>
-        <p>When a business owner registers or manages a listing, we may collect:</p>
         <ul>
           <li>Name and email address.</li>
           <li>Login credentials and authentication information.</li>
           <li>Business name, address, opening hours, and contact details.</li>
           <li>Products or services, stock details, and listed prices.</li>
-          <li>Business photographs and other information submitted for the listing.</li>
+          <li>Business photographs.</li>
         </ul>
-        <p>Business owners must provide accurate information and should only submit information they are authorised to publish.</p>
-
-        <h4>C. Information Collected Automatically</h4>
-        <p>We may process technical logs, security events, session information, and error reports to operate the website, maintain security, and troubleshoot issues. We do not claim to collect analytics, advertising profiles, or precise location data unless the relevant functionality is actually enabled.</p>
       </section>
-
       <section>
-        <h3>3. How We Use Personal Data</h3>
-        <ul>
-          <li>Display and maintain business listings.</li>
-          <li>Allow business owners to register, verify their email, sign in, and manage listings.</li>
-          <li>Show business hours, products, services, and prices.</li>
-          <li>Enable visitors to contact listed businesses.</li>
-          <li>Compare prices for matching listed products.</li>
-          <li>Maintain sessions and prevent unauthorised access.</li>
-          <li>Respond to support requests and complaints.</li>
-          <li>Meet applicable legal obligations.</li>
-        </ul>
-        <p>We will not use personal data for unrelated purposes without an appropriate lawful basis.</p>
-      </section>
-
-      <section>
-        <h3>4. Public Business Information</h3>
-        <p>Business listings may be visible to anyone visiting Jamghat. Information such as a business name, address, contact details, hours, prices, and uploaded business photographs may be publicly accessible.</p>
-        <p>Business owners should not submit personal or confidential information that they do not intend to make public. Public visibility of a business listing does not mean that private account credentials or authentication tokens are public.</p>
-      </section>
-
-      <section>
-        <h3>5. Cookies and Session Management</h3>
-        <p>Jamghat uses an HTTP-only session cookie for authentication. This cookie helps maintain a business owner's login session. Essential cookies may be used for security and core website functions. Optional analytics or advertising cookies should only be activated if those technologies are implemented and the required consent has been obtained.</p>
-        <p>Please read our Cookie Policy for details.</p>
-      </section>
-
-      <section>
-        <h3>6. Third-Party Services</h3>
-        <p>Jamghat's infrastructure may involve:</p>
-        <ul>
-          <li>Supabase/PostgreSQL for database and storage services.</li>
-          <li>An email service provider for business-owner email verification.</li>
-          <li>Hosting and infrastructure providers (e.g. Render).</li>
-          <li>Google Maps, if the optional map integration is enabled.</li>
-        </ul>
-        <p>These providers may process information as necessary to provide their services. Public business photographs may be accessible through public image URLs. We do not publish database passwords, authentication secrets, or private account credentials.</p>
-      </section>
-
-      <section>
-        <h3>7. Sharing of Personal Data</h3>
-        <p>We may share relevant information with service providers supporting website operations, where legally permitted or required, or where necessary to respond to valid legal requests. Any sharing must be consistent with applicable law and the purposes described in this policy.</p>
-      </section>
-
-      <section>
-        <h3>8. Data Retention</h3>
-        <p>We retain personal data only for as long as reasonably necessary for the stated purposes or as required by applicable law. When information is no longer required, it should be deleted or anonymised where appropriate and legally permitted.</p>
-      </section>
-
-      <section>
-        <h3>9. Security</h3>
-        <p>We use appropriate technical and organisational measures to protect personal data against unauthorised access, disclosure, alteration, loss, or misuse, including access controls, secure server-side credential handling, protected environment secrets, and monitoring. No internet service can guarantee absolute security.</p>
-      </section>
-
-      <section>
-        <h3>10. Your Privacy Rights</h3>
-        <p>Subject to applicable law, you may be entitled to request information about your personal data, request correction or updating of inaccurate information, request erasure of personal data, withdraw consent, or raise a grievance.</p>
-      </section>
-
-      <section>
-        <h3>11. Children's Data</h3>
-        <p>Jamghat is not intended to encourage children to disclose unnecessary personal information. Where applicable law requires verifiable parental consent or other safeguards, we will implement the relevant requirements before processing.</p>
-      </section>
-
-      <section>
-        <h3>12. Personal Data Breaches</h3>
-        <p>If a personal data breach occurs, Jamghat will take appropriate steps to investigate, contain, and address it and provide notifications to affected individuals and authorities where required by applicable law.</p>
-      </section>
-
-      <section>
-        <h3>13. Contact and Grievances</h3>
+        <h3>3. Contact and Grievances</h3>
         <div className="legal-contact-card">
           <p><strong>Platform:</strong> Jamghat</p>
-          <p><strong>Website:</strong> <a href="https://jamghat.thesrock.in/" target="_blank" rel="noreferrer">https://jamghat.thesrock.in/</a></p>
+          <p><strong>Website:</strong> https://jamghat.thesrock.in/</p>
           <p><strong>Privacy Contact:</strong> contact@thesrock.in</p>
           <p><strong>Grievance Officer:</strong> Grievance Redressal Team, Jamghat</p>
         </div>
@@ -2773,58 +2662,20 @@ function TermsContent() {
     <article className="legal-article">
       <h1>Terms and Conditions — Jamghat</h1>
       <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
-
       <section>
         <h3>1. Introduction</h3>
-        <p>Welcome to Jamghat. These Terms and Conditions govern your access to and use of the Jamghat website at <a href="https://jamghat.thesrock.in/">https://jamghat.thesrock.in/</a>. By accessing or using Jamghat, you agree to comply with these Terms.</p>
+        <p>These Terms and Conditions govern your access to and use of the Jamghat website at https://jamghat.thesrock.in/. By accessing or using Jamghat, you agree to comply with these Terms.</p>
       </section>
-
       <section>
         <h3>2. About Jamghat</h3>
-        <p>Jamghat provides a platform for discovering local businesses and their publicly displayed information. Unless expressly stated otherwise, Jamghat acts as a business discovery and information platform. A business listing does not mean that Jamghat owns, operates, endorses, or directly sells the listed products or services.</p>
+        <p>Jamghat provides a platform for discovering local businesses and their publicly displayed information. A business listing does not mean that Jamghat owns, operates, endorses, or directly sells the listed products or services.</p>
       </section>
-
       <section>
-        <h3>3. Eligibility and User Accounts</h3>
-        <p>Visitors may browse publicly available listings without registering. Business owners who create accounts must provide accurate information, use a valid email address, keep login credentials confidential, and notify the platform of any unauthorised access.</p>
-      </section>
-
-      <section>
-        <h3>4. Business Listings and Information</h3>
-        <p>Business owners are responsible for ensuring that their submitted information is accurate, lawful, and up to date. Prices and availability may change without notice. Users should confirm important details directly with the relevant business before making a purchase or visiting.</p>
-      </section>
-
-      <section>
-        <h3>5. Price Comparisons</h3>
-        <p>Price comparisons are provided for informational purposes. Differences in product quality, brand, condition, or taxes may affect comparability. Jamghat does not guarantee that every listed price is the lowest or current at the moment of purchase.</p>
-      </section>
-
-      <section>
-        <h3>6. Relationship with Local Businesses</h3>
-        <p>Any purchase, booking, payment, delivery, or warranty is strictly between the user and the relevant business. The business is responsible for fulfilling orders and consumer obligations.</p>
-      </section>
-
-      <section>
-        <h3>7. Acceptable Use</h3>
-        <p>You agree not to submit false or misleading information, impersonate individuals or businesses, upload infringing content, attempt unauthorised system access, or use automated scraping without authorisation.</p>
-      </section>
-
-      <section>
-        <h3>8. User-Submitted Content</h3>
-        <p>Users and business owners retain rights to their submitted content, granting Jamghat a non-exclusive licence to host and display it to operate the platform.</p>
-      </section>
-
-      <section>
-        <h3>9. Governing Law</h3>
-        <p>These Terms are governed by the laws of India. Disputes will be handled by the competent courts or consumer forums having jurisdiction.</p>
-      </section>
-
-      <section>
-        <h3>10. Contact Details</h3>
+        <h3>3. Contact Details</h3>
         <div className="legal-contact-card">
           <p><strong>Platform:</strong> Jamghat</p>
           <p><strong>Website:</strong> https://jamghat.thesrock.in/</p>
-          <p><strong>Contact Email:</strong> contact@thesrock.in</p>
+          <p><strong>Email:</strong> contact@thesrock.in</p>
         </div>
       </section>
     </article>
@@ -2836,24 +2687,16 @@ function CookiePolicyContent() {
     <article className="legal-article">
       <h1>Cookie Policy — Jamghat</h1>
       <p className="legal-meta">Effective Date: 28 October 2026</p>
-
       <section>
         <h3>1. What Are Cookies?</h3>
-        <p>Cookies and browser local storage are small data files stored on your device that help maintain sessions, remember user preferences, and protect accounts.</p>
+        <p>Cookies and browser local storage are small data files stored on your device that help maintain sessions, remember preferences, and protect accounts.</p>
       </section>
-
       <section>
         <h3>2. Cookies Used by Jamghat</h3>
         <ul>
-          <li><strong>Essential Cookies / Storage:</strong> Required for secure sign-in (<code>jg_session</code> HTTP-only cookie), theme choices (<code>mh-theme</code>), and language selections (<code>mh-lang</code>).</li>
+          <li><strong>Essential Cookies / Storage:</strong> Required for secure sign-in (<code>jg_session</code> HTTP-only cookie) and language selections (<code>mh-lang</code>).</li>
           <li><strong>Preference Cookies / Storage:</strong> Used to save chosen map coordinates (<code>mh-location</code>) and store cookie consent choices (<code>mh-cookie-consent</code>).</li>
-          <li><strong>Analytics & Marketing:</strong> Jamghat currently does not deploy non-consensual tracking or third-party ad profiling cookies.</li>
         </ul>
-      </section>
-
-      <section>
-        <h3>3. Managing Cookie Choices</h3>
-        <p>You can adjust your cookie preferences at any time using the Cookie Settings trigger in the site footer or through your web browser controls.</p>
       </section>
     </article>
   );
@@ -2863,20 +2706,13 @@ function UserDataPolicyContent() {
   return (
     <article className="legal-article">
       <h1>User Data Policy — Jamghat</h1>
-      <p className="legal-meta">Effective Date: 28 October 2026 | Last Updated: 28 October 2026</p>
-
+      <p className="legal-meta">Effective Date: 28 October 2026</p>
       <section>
-        <h3>1. Introduction & Regulatory Alignment</h3>
-        <p>Jamghat adheres to fair information practices under the Digital Personal Data Protection Act, 2023 (DPDP Act) and the DPDP Rules, 2025.</p>
-      </section>
-
-      <section>
-        <h3>2. Purpose Limitation</h3>
+        <h3>1. Purpose Limitation</h3>
         <p>We process personal information strictly to operate local listings, facilitate user-to-business discovery, verify genuine business ownership, and ensure platform security.</p>
       </section>
-
       <section>
-        <h3>3. Data Erasure</h3>
+        <h3>2. Data Erasure</h3>
         <p>Business owners may permanently delete their listing and account via the Dashboard at any time. Once initiated, all associated catalog items, database mappings, and photos are permanently purged.</p>
       </section>
     </article>
@@ -2887,25 +2723,12 @@ function AboutUsContent() {
   return (
     <article className="legal-article">
       <h1>About Us — Jamghat</h1>
-      <p className="legal-meta" style={{ color: 'var(--brand)', fontWeight: 700 }}>
+      <p className="legal-meta" style={{ color: 'var(--stroke)', fontWeight: 800 }}>
         Discover Local. Compare Smartly. Support Local Businesses.
       </p>
-
       <section>
         <p>Jamghat is a hyperlocal business discovery platform created to make finding shops, products, and services simpler for everyone in the neighbourhood.</p>
-        <p>We believe that local businesses are the heartbeat of every community. Finding the right shop, checking live availability, and verifying opening hours can be frustrating. Jamghat brings this verified local data onto one screen.</p>
       </section>
-
-      <section>
-        <h3>Why Jamghat?</h3>
-        <ul>
-          <li><strong>Easy Discovery:</strong> Find neighborhood shops and home service providers.</li>
-          <li><strong>Price Transparency:</strong> Benchmark listed product prices across multiple local sellers.</li>
-          <li><strong>Digital Visibility:</strong> Provide independent storefronts with an online catalog and photo gallery.</li>
-          <li><strong>Community Support:</strong> Empower local trade without complex commission markups.</li>
-        </ul>
-      </section>
-
       <section>
         <h3>Project Information</h3>
         <div className="legal-contact-card">
