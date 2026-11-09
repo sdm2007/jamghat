@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Search, MapPin, Phone, ArrowLeft, Plus, Compass, Camera, X, Store, Clock3,
   LogOut, LogIn, Package, ShieldCheck, ChevronRight, SlidersHorizontal, BarChart3, LocateFixed, Navigation,
   ExternalLink, Edit3, Save, AlertTriangle, RefreshCw, CalendarClock, Trash2, User, Check, XCircle,
-  Shield, FileText, Cookie, Database, Info, Settings2
+  Shield, FileText, Cookie, Database, Info, Settings2, Sun, Moon
 } from 'lucide-react';
 import L from 'leaflet';
 
@@ -341,6 +341,11 @@ function escapeHtml(value) {
 }
 
 function App() {
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('mh-theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const [lang, setLang] = useState(localStorage.getItem('mh-lang') || 'en');
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('home');
@@ -365,6 +370,11 @@ function App() {
   const [legalModalTab, setLegalModalTab] = useState(null);
   const watchIdRef = useRef(null);
   const t = i18n[lang] || i18n.en;
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('mh-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem('mh-lang', lang);
@@ -549,6 +559,14 @@ function App() {
           </span>
         </button>
         <div className="top-actions">
+          <button
+            className="icon-btn"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={() => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <button className="icon-btn" title="Language" onClick={() => setLang(x => (x === 'en' ? 'hi' : 'en'))}>
             {lang === 'en' ? 'हिन्दी' : 'EN'}
           </button>
@@ -582,7 +600,7 @@ function App() {
       {notice && (
         <div className="notice" style={{ margin: '12px 24px 0' }}>
           {notice}
-          <button style={{ float: 'right', border: 0, background: 'none', cursor: 'pointer' }} onClick={() => setNotice('')}>
+          <button style={{ float: 'right', border: 0, background: 'none', cursor: 'pointer', color: 'inherit' }} onClick={() => setNotice('')}>
             <X size={14} />
           </button>
         </div>
@@ -791,7 +809,7 @@ function Home({
               {businesses.length} {t.localOptions}
             </small>
           </div>
-          <SlidersHorizontal size={18} color="#abd1c6" />
+          <SlidersHorizontal size={18} style={{ color: 'var(--text-secondary)' }} />
         </div>
         {loading ? (
           <Loading text={t.loadingInfo} />
@@ -830,8 +848,8 @@ function LocationBar({ location, locating, onLocate, message, t }) {
         </div>
       </div>
       <div className="location-actions">
-        <button className={locating ? "primary small" : "secondary small"} onClick={onLocate}>
-          <LocateFixed size={15} className={locating ? "spin" : ""} />{' '}
+        <button className={locating ? 'primary small' : 'secondary small'} onClick={onLocate}>
+          <LocateFixed size={15} className={locating ? 'spin' : ''} />{' '}
           {locating ? t.trackingActive : t.useMyLocation}
         </button>
         <a
@@ -844,12 +862,12 @@ function LocationBar({ location, locating, onLocate, message, t }) {
           <ExternalLink size={15} />
         </a>
       </div>
-      {message && <small className="location-message" style={{ width: '100%', color: 'var(--muted)', marginTop: '4px' }}>{message}</small>}
+      {message && <small className="location-message" style={{ width: '100%', color: 'var(--text-secondary)', marginTop: '4px' }}>{message}</small>}
     </section>
   );
 }
 
-function SingleShopRouteMap({ business, businesses = [], customerLocation, t, openBusiness }) {
+function SingleShopRouteMap({ business, businesses = [], customerLocation, t }) {
   const [expanded, setExpanded] = useState(true);
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -888,7 +906,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
       const shopIcon = L.divIcon({
         className: 'custom-shop-pin',
-        html: `<div style="background:#f9bc60;color:#001e1d;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid #001e1d;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
+        html: `<div style="background:#2e9e7b;color:#ffffff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-weight:bold;border:2px solid #181c1c;box-shadow:0 3px 8px rgba(0,0,0,0.35);font-size:13px;">${escapeHtml(business.name.slice(0, 1))}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
@@ -901,7 +919,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
         .forEach(b => {
           const otherIcon = L.divIcon({
             className: 'custom-secondary-pin',
-            html: `<div style="background:#abd1c6;color:#001e1d;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:1.5px solid #001e1d;">${escapeHtml(b.name.slice(0, 1))}</div>`,
+            html: `<div style="background:#dff2ec;color:#181c1c;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:1.5px solid #2e9e7b;">${escapeHtml(b.name.slice(0, 1))}</div>`,
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           });
@@ -929,7 +947,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
     const customerIcon = L.divIcon({
       className: 'custom-user-pin',
-      html: `<div style="background:#004643;color:#fffffe;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid #f9bc60;">You</div>`,
+      html: `<div style="background:#181c1c;color:#ffffff;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:10px;font-weight:bold;border:2px solid #4fd1a5;">You</div>`,
       iconSize: [26, 26],
       iconAnchor: [13, 13]
     });
@@ -957,24 +975,24 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
           const endLeg = [roadCoordinates[roadCoordinates.length - 1], [providerLat, providerLng]];
 
           L.polyline(roadCoordinates, {
-            color: '#004643',
+            color: '#2e9e7b',
             weight: 5,
             opacity: 0.9,
             lineJoin: 'round'
           }).addTo(layersRef.current.route);
 
           L.polyline(startLeg, {
-            color: '#f9bc60',
+            color: '#181c1c',
             weight: 3.5,
             dashArray: '5, 7',
-            opacity: 0.95
+            opacity: 0.85
           }).addTo(layersRef.current.route);
 
           L.polyline(endLeg, {
-            color: '#f9bc60',
+            color: '#181c1c',
             weight: 3.5,
             dashArray: '5, 7',
-            opacity: 0.95
+            opacity: 0.85
           }).addTo(layersRef.current.route);
 
           setRouteInfo({
@@ -988,7 +1006,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
   if (!hasProviderCoords) {
     return (
-      <div className="panel" style={{ color: 'var(--muted)', fontSize: '13px' }}>
+      <div className="panel" style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
         Location coordinates are not registered for this shop.
       </div>
     );
@@ -1015,7 +1033,7 @@ function SingleShopRouteMap({ business, businesses = [], customerLocation, t, op
 
       {expanded && (
         <>
-          <div ref={mapContainerRef} style={{ height: '360px', marginTop: '10px', borderRadius: '15px', zIndex: 1, border: '2px solid #001e1d' }} />
+          <div ref={mapContainerRef} style={{ height: '360px', marginTop: '10px', borderRadius: '15px', zIndex: 1, border: '1.5px solid var(--border)' }} />
           <div
             className={
               !hasCustomerCoords
@@ -1109,7 +1127,7 @@ function HomeServiceRadar({ businesses, openBusiness, t }) {
                 }
               }}
             >
-              <div className="service-provider-top">
+              <div className="service-provider-top" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <div className="biz-avatar">{b.name.slice(0, 1)}</div>
                 <div className="biz-main">
                   <div className="biz-title">
@@ -1201,7 +1219,6 @@ function BusinessCard({ b, openBusiness, t }) {
           <div key={i.id}>
             <span>{i.name}</span>
             <b>{priceText(i, t)}</b>
-            <small className="market-price-range">{marketPriceText(i, t)}</small>
             <em className={`stock ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</em>
           </div>
         ))}
@@ -1230,8 +1247,7 @@ function Business({
   businesses,
   onBack,
   t,
-  customerLocation,
-  openBusiness
+  customerLocation
 }) {
   return (
     <div className="stack">
@@ -1246,7 +1262,7 @@ function Business({
             {business.verified ? <ShieldCheck size={18} /> : null}
           </div>
           <p>{business.category}{distText(business) ? ` · ${distText(business)} away` : ''}</p>
-          <div className={business.is_open ? 'status open' : 'status closed'}>{business.status_label}</div>
+          <div className={business.is_open ? 'status open' : 'status closed'} style={{ marginTop: '4px' }}>{business.status_label}</div>
         </div>
       </section>
 
@@ -1256,7 +1272,6 @@ function Business({
           businesses={businesses}
           customerLocation={customerLocation}
           t={t}
-          openBusiness={openBusiness}
         />
       )}
 
@@ -1345,11 +1360,9 @@ function Business({
                 {i.description && <p>{i.description}</p>}
               </div>
               <div className="catalog-right">
-                <div className="catalog-price-wrap">
-                  <strong>{priceText(i, t)}</strong>
-                  <small className="market-price-range">{marketPriceText(i, t)}</small>
-                  <span className={`stock ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</span>
-                </div>
+                <strong>{priceText(i, t)}</strong>
+                {marketPriceText(i, t) && <small>{marketPriceText(i, t)}</small>}
+                <span className={`stock ${i.status.toLowerCase()}`}>{stockLabel(i, t)}</span>
               </div>
             </div>
           ))}
@@ -1413,7 +1426,7 @@ function ProductSearchListings({ query, businesses, openBusiness, t }) {
               <small>
                 {business.name} · {business.address}
               </small>
-              <em>
+              <em style={{ fontSize: '11px', fontStyle: 'normal', color: 'var(--accent)' }}>
                 {business.is_open ? t.open : t.closed} ·{' '}
                 {item.status === 'OUT_OF_STOCK'
                   ? t.outOfStock
@@ -1424,7 +1437,7 @@ function ProductSearchListings({ query, businesses, openBusiness, t }) {
             </span>
             <span className="product-listing-price">
               <strong>{priceText(item, t)}</strong>
-              <small className="market-price-range">{marketPriceText(item, t)}</small>
+              {marketPriceText(item, t) && <small>{marketPriceText(item, t)}</small>}
             </span>
             <ChevronRight size={16} />
           </button>
@@ -1586,28 +1599,28 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
         <div>
           <span className="eyebrow">SHOP OWNER</span>
           <h1>{biz.name}</h1>
-          <p>
+          <p style={{ margin: '2px 0', color: 'var(--text-secondary)', fontSize: '12px' }}>
             {biz.profile_completeness}
             {t.profileComplete}
           </p>
           {biz.verification_status === 'EMAIL_UNVERIFIED' && (
-            <small style={{ color: 'var(--tertiary)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
+            <small style={{ color: 'var(--red)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
               Action required: Check your inbox and click the verification link to submit your shop for activation.
             </small>
           )}
           {biz.verification_status === 'PENDING' && (
-            <small style={{ color: 'var(--button-text)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
+            <small style={{ color: 'var(--accent)', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>
               Your email is verified! Your listing is now in queue awaiting admin activation.
             </small>
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button className="danger-outline" onClick={handleDeleteProfile} disabled={deleting}>
-            <Trash2 size={16} />
+          <button className="danger-outline small" onClick={handleDeleteProfile} disabled={deleting}>
+            <Trash2 size={15} />
             {deleting ? t.deletingAccount : t.deleteAccount}
           </button>
           <button className="secondary small" onClick={logout}>
-            <LogOut size={16} />
+            <LogOut size={15} />
             {t.logout}
           </button>
         </div>
@@ -1684,7 +1697,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
         <section className="panel">
           <div className="section-head">
             <div>
-              <h2><Camera size={18} /> {t.shopPhotos}</h2>
+              <h2><Camera size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> {t.shopPhotos}</h2>
               <small>Upload photos of your shop and products.</small>
             </div>
           </div>
@@ -1719,7 +1732,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
                 <img src={p.image_url} alt={p.caption || 'Shop photo'} />
                 <figcaption>
                   <p>{p.caption || 'Shop photo'}</p>
-                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: p.status === 'VISIBLE' ? 'var(--green)' : 'var(--button-text)' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: p.status === 'VISIBLE' ? 'var(--green)' : 'var(--text-secondary)' }}>
                     {p.status === 'VISIBLE' ? 'Approved (Live)' : 'Pending Review'}
                   </span>
                 </figcaption>
@@ -1733,7 +1746,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
         <section className="panel">
           <div className="section-head">
             <div>
-              <h2><User size={18} /> {t.myAccount}</h2>
+              <h2><User size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> {t.myAccount}</h2>
               <small>Edit your personal login email or password.</small>
             </div>
           </div>
@@ -1746,8 +1759,8 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
               Email address
               <input type="email" value={accountEmail} onChange={e => setAccountEmail(e.target.value)} required />
             </label>
-            <hr style={{ border: 0, borderTop: '1.5px solid var(--border)', margin: '8px 0' }} />
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Change Password</span>
+            <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Change Password</span>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
               Current Password
               <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
@@ -1786,7 +1799,7 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
                   <input
                     type="number"
                     min="0"
-                    style={{ width: '70px', padding: '5px', borderRadius: '6px', border: '1.5px solid var(--stroke)' }}
+                    style={{ width: '74px', padding: '5px 8px', borderRadius: '6px', border: '1.5px solid var(--border)' }}
                     value={i.quantity ?? 0}
                     onChange={e =>
                       setBiz({
@@ -1812,8 +1825,8 @@ function BusinessDashboard({ api, t, logout, user, setUser }) {
               </div>
               <CalendarClock size={20} />
             </div>
-            <label className="check-field closed-today-toggle" style={{ margin: '12px 0' }}>
-              <input type="checkbox" checked={closedToday} onChange={e => setClosedToday(e.target.checked)} style={{ accentColor: 'var(--highlight)' }} />
+            <label className="check-field closed-today-toggle" style={{ margin: '12px 0', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input type="checkbox" checked={closedToday} onChange={e => setClosedToday(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
               <span>
                 <b>{t.closedToday}</b>
               </span>
@@ -1960,10 +1973,10 @@ function AdminDashboard({ api, logout, t }) {
         <div>
           <span className="eyebrow">JAMGHAT ADMIN</span>
           <h1>Verified Shop Registrations</h1>
-          <small style={{ color: 'var(--muted)' }}>Only shops with verified emails are shown for review.</small>
+          <small style={{ color: 'var(--text-secondary)' }}>Only shops with verified emails are shown for review.</small>
         </div>
-        <button className="danger-outline" onClick={logout}>
-          <LogOut size={16} />
+        <button className="danger-outline small" onClick={logout}>
+          <LogOut size={15} />
           {t.logout}
         </button>
       </div>
@@ -1993,7 +2006,7 @@ function AdminDashboard({ api, logout, t }) {
                   <b>{s.name}</b>
                   <small>
                     {s.category} · {s.phone || 'no phone'} · {t.adminStatus}:{' '}
-                    <strong style={{ color: s.verification_status === 'VERIFIED' ? 'var(--green)' : 'var(--tertiary)' }}>
+                    <strong style={{ color: s.verification_status === 'VERIFIED' ? 'var(--green)' : 'var(--red)' }}>
                       {s.verification_status}
                     </strong>
                   </small>
@@ -2063,7 +2076,7 @@ function PhotoGallery({ photos, name, t }) {
       <div className="section-head">
         <div>
           <h2>
-            <Camera size={18} /> {t.shopPhotos}
+            <Camera size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> {t.shopPhotos}
           </h2>
         </div>
       </div>
@@ -2287,7 +2300,7 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
             ? 'Enter your registered email to receive a password reset link.'
             : 'Enter your new password below.'}
         </p>
-        {err && <div className="error-banner">{err}</div>}
+        {err && <div className="error-banner" style={{ margin: 0 }}>{err}</div>}
         {msg && <div className="notice">{msg}</div>}
         {resendMessage && <div className="notice">{resendMessage}</div>}
 
@@ -2321,12 +2334,12 @@ function AuthModal({ initialMode = 'login', resetToken, onClose, onLogin, onRegi
               minLength={8}
               required
             />
-            <label className="check-field" style={{ fontSize: '11px', marginTop: '6px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <label className="check-field" style={{ fontSize: '11px', marginTop: '6px', display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-secondary)' }}>
               <input
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={e => setAgreedToTerms(e.target.checked)}
-                style={{ marginTop: '2px', accentColor: 'var(--highlight)' }}
+                style={{ marginTop: '2px', accentColor: 'var(--accent)' }}
                 required
               />
               <span>
@@ -2482,7 +2495,7 @@ function CookieBanner({ onOpenPolicy }) {
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="secondary small" onClick={() => setShowCustomizer(true)}>
             <Settings2 size={14} /> Customize
           </button>
@@ -2524,7 +2537,7 @@ function CookieBanner({ onOpenPolicy }) {
             <div className="cookie-toggle-row">
               <div>
                 <b>Functional & Location</b>
-                <small>Preserves UI language and cached coordinates for distance calculations.</small>
+                <small>Preserves UI language, theme mode, and cached coordinates for distance calculations.</small>
               </div>
               <input
                 type="checkbox"
@@ -2563,7 +2576,7 @@ function LegalModal({ initialTab = LEGAL_TABS.PRIVACY, onClose }) {
       <div className="legal-modal-container" onClick={e => e.stopPropagation()}>
         <div className="legal-modal-header">
           <div className="legal-header-titles">
-            <span className="eyebrow" style={{ color: 'var(--button-text)' }}>JAMGHAT COMPLIANCE & LEGAL</span>
+            <span className="eyebrow">JAMGHAT COMPLIANCE & LEGAL</span>
             <h2>Documentation & Policies</h2>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close legal view">
@@ -2694,7 +2707,7 @@ function CookiePolicyContent() {
       <section>
         <h3>2. Cookies Used by Jamghat</h3>
         <ul>
-          <li><strong>Essential Cookies / Storage:</strong> Required for secure sign-in (<code>jg_session</code> HTTP-only cookie) and language selections (<code>mh-lang</code>).</li>
+          <li><strong>Essential Cookies / Storage:</strong> Required for secure sign-in (<code>jg_session</code> HTTP-only cookie), theme preference (<code>mh-theme</code>), and language selections (<code>mh-lang</code>).</li>
           <li><strong>Preference Cookies / Storage:</strong> Used to save chosen map coordinates (<code>mh-location</code>) and store cookie consent choices (<code>mh-cookie-consent</code>).</li>
         </ul>
       </section>
@@ -2723,7 +2736,7 @@ function AboutUsContent() {
   return (
     <article className="legal-article">
       <h1>About Us — Jamghat</h1>
-      <p className="legal-meta" style={{ color: 'var(--stroke)', fontWeight: 800 }}>
+      <p className="legal-meta" style={{ color: 'var(--accent)', fontWeight: 700 }}>
         Discover Local. Compare Smartly. Support Local Businesses.
       </p>
       <section>

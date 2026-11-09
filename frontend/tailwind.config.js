@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ['class', '[data-theme="dark"]'],
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,20 +8,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        forest: {
-          DEFAULT: '#004643',
-          dark: '#001e1d',
+        seafoam: {
+          DEFAULT: '#2e9e7b',
+          light: '#4fd1a5',
+          soft: '#dff2ec',
+          hover: '#238264',
         },
-        sage: '#abd1c6',
-        gold: {
-          DEFAULT: '#f9bc60',
-          hover: '#e8a94b',
+        charcoal: {
+          DEFAULT: '#181c1c',
+          dark: '#121515',
+          card: '#1b2020',
+          elevated: '#242b2a',
         },
-        coral: '#e16162',
-        surface: {
-          DEFAULT: '#e8e4e6',
-          headline: '#fffffe',
-        }
       }
     },
   },
